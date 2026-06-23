@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AnswerEngineer.AI v1</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="popup">
+
+  <!-- Screen 1: URL entry + Welcome info -->
+  <main id="screen-1" class="landing screen" data-screen="1">
+    <div class="logo" aria-label="AnswerEngineer.AI analytics logo">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+        <defs>
+          <linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="100%" stop-color="#f472b6"/>
+          </linearGradient>
+          <linearGradient id="barGrad" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="#fde68a"/>
+            <stop offset="100%" stop-color="#ffffff"/>
+          </linearGradient>
+        </defs>
+        <circle cx="54" cy="54" r="40" fill="rgba(255,255,255,0.08)" stroke="url(#ringGrad)" stroke-width="4"/>
+        <rect x="36" y="58" width="8"  height="20" rx="2" fill="url(#barGrad)"/>
+        <rect x="50" y="46" width="8"  height="32" rx="2" fill="url(#barGrad)"/>
+        <rect x="64" y="34" width="8"  height="44" rx="2" fill="url(#barGrad)"/>
+        <polyline points="40,58 54,46 68,34" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="40" cy="58" r="2.5" fill="#ffffff"/>
+        <circle cx="54" cy="46" r="2.5" fill="#ffffff"/>
+        <circle cx="68" cy="34" r="2.5" fill="#ffffff"/>
+        <line x1="84" y1="84" x2="108" y2="108" stroke="url(#ringGrad)" stroke-width="8" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <h1 class="brand">AnswerEngineer<span class="brand-accent">.AI</span></h1>
+
+    <h2 class="welcome-subtitle">Welcome!</h2>
+
+    <p class="description">
+      Analyze your webpage across 7 AI visibility dimensions to improve your ranking on ChatGPT, Claude, Gemini, and more.
+    </p>
+
+    <section class="landing-info">
+      <h3 class="landing-info-title">How it works:</h3>
+      <ol class="landing-info-list">
+        <li><strong>🔗 Enter URL</strong> — Paste any page to analyze.</li>
+        <li><strong>📊 Get Score</strong> — See your GEO score (0–100).</li>
+        <li><strong>🛠️ Get Fixes</strong> — CMS-specific remediation steps.</li>
+      </ol>
+    </section>
+
+    <form id="analyze-form" class="url-form" novalidate>
+      <label for="site-url" class="visually-hidden">Website URL</label>
+      <input
+        id="site-url"
+        type="url"
+        name="url"
+        placeholder="https://your-website.com"
+        autocomplete="url"
+        spellcheck="false"
+        required
+      >
+
+      <button id="analyze-btn" type="submit" class="btn-3d" title="Run GEO audit on this website">
+        <span class="btn-3d__label">ANALYZE</span>
+      </button>
+    </form>
+
+    <p id="status" class="status" role="status" aria-live="polite"></p>
+
+    <footer class="landing-footer">
+      <p class="landing-version">version 0.0.1</p>
+    </footer>
+  </main>
+
+  <!-- Screen 2: Welcome / How this works -->
+  <main id="screen-2" class="welcome screen is-hidden" data-screen="2" hidden>
+    <header class="welcome-top">
+      <h2 class="welcome-title">Welcome!</h2>
+      <p class="welcome-lead">
+        The <strong>GEO Audit</strong> analyzes your website across 7 critical dimensions that determine if AI search engines (ChatGPT, Claude, Gemini, etc.) will cite your site. Get your GEO Score and discover exactly what to fix.
+      </p>
+    </header>
+
+    <section class="welcome-middle">
+      <h3 class="how-title">HOW IT WORKS:</h3>
+      <ol class="how-list">
+        <li><strong>🔗 Enter your URL</strong> — Submit any page to analyze.</li>
+        <li><strong>📊 Instant GEO Score</strong> — See your visibility score (0–100) across 7 critical dimensions.</li>
+        <li><strong>🛠️ Get Fixes</strong> — Receive step-by-step remediation for your specific CMS (WordPress, Shopify, etc.).</li>
+      </ol>
+    </section>
+
+    <footer class="welcome-bottom">
+      <p class="ready">READY?</p>
+      <button id="go-btn" type="button" class="btn-3d">
+        <span class="btn-3d__label">LET'S GO!</span>
+      </button>
+      <button id="back-btn" type="button" class="link-btn">&larr; Back</button>
+    </footer>
+  </main>
+
+  <!-- Screen 3: Tabbed dashboard -->
+  <main id="screen-3" class="dashboard screen is-hidden" data-screen="3" hidden>
+    <header class="dash-header">
+      <div class="dash-brand">
+        <svg class="dash-logo" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="54" cy="54" r="40" fill="rgba(255,255,255,0.08)" stroke="#fde68a" stroke-width="4"/>
+          <rect x="36" y="58" width="8"  height="20" rx="2" fill="#fde68a"/>
+          <rect x="50" y="46" width="8"  height="32" rx="2" fill="#fde68a"/>
+          <rect x="64" y="34" width="8"  height="44" rx="2" fill="#fde68a"/>
+          <line x1="84" y1="84" x2="108" y2="108" stroke="#fde68a" stroke-width="8" stroke-linecap="round"/>
+        </svg>
+        <span class="dash-title">AnswerEngineer<span class="brand-accent">.AI</span></span>
+      </div>
+
+      <p id="dash-target" class="dash-target"></p>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Analysis tools">
+      <button class="tab is-active" role="tab" aria-selected="true"  aria-controls="tab-audit"     id="tab-btn-audit"     data-tab="audit">Point Audit</button>
+      <button class="tab"           role="tab" aria-selected="false" aria-controls="tab-simulator" id="tab-btn-simulator" data-tab="simulator">AI Simulator</button>
+      <button class="tab"           role="tab" aria-selected="false" aria-controls="tab-crawler"   id="tab-btn-crawler"   data-tab="crawler">Crawler View</button>
+      <button class="tab"           role="tab" aria-selected="false" aria-controls="tab-history"   id="tab-btn-history"   data-tab="history">History</button>
+      <button class="tab"           role="tab" aria-selected="false" aria-controls="tab-settings"  id="tab-btn-settings"  data-tab="settings">Settings</button>
+    </nav>
+
+    <section class="tab-panels">
+
+      <article id="tab-audit" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-btn-audit">
+        <h3 class="panel-title">Point Audit</h3>
+        <p class="panel-lead">Analyze your page across 7 dimensions that determine AI engine visibility. Click any score to see how to fix it.</p>
+
+        <div class="audit-cms">
+          <label for="audit-cms-select" title="Select your platform to get specific remediation hints">Platform:</label>
+          <select id="audit-cms-select" title="Choose your website platform to receive tailored fix recommendations">
+            <option value="wordpress">WordPress</option>
+            <option value="shopify">Shopify</option>
+            <option value="wix">Wix</option>
+            <option value="squarespace">Squarespace</option>
+            <option value="webflow">Webflow</option>
+            <option value="generic">Generic / Custom</option>
+          </select>
+        </div>
+
+        <div class="audit-overall">
+          <div id="score-ring" class="score-ring score-pending" role="img" aria-label="Overall GEO score" title="Your overall visibility score across all 7 dimensions. Higher is better.">
+            <svg class="score-ring__svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <circle class="score-ring__track" cx="50" cy="50" r="42" fill="none" stroke-width="9"/>
+              <circle id="score-ring-progress" class="score-ring__progress" cx="50" cy="50" r="42" fill="none" stroke-width="9" stroke-linecap="round" pathLength="100" stroke-dasharray="0 100"/>
+            </svg>
+            <div class="score-ring__inner">
+              <div id="score-ring-value" class="score-ring__value">--</div>
+              <div class="score-ring__label">/ 100</div>
+            </div>
+          </div>
+          <div class="audit-overall__text">
+            <div class="audit-overall__label">Overall Score</div>
+            <div class="audit-overall__sub">Average of the 7 criteria below</div>
+          </div>
+        </div>
+
+        <ul id="audit-list" class="audit-list audit-list--checks">
+          <!-- Populated by popup.js -->
+        </ul>
+      </article>
+
+      <article id="tab-simulator" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-simulator" hidden>
+        <h3 class="panel-title">AI Simulator</h3>
+        <p class="panel-lead">💭 Ask a question and predict which AI engines (ChatGPT, Claude, Gemini) will mention your site based on your GEO score.</p>
+
+        <div class="sim-status" id="sim-status" aria-live="polite">
+          <span class="sim-plan-badge sim-plan-badge--free" id="sim-plan-badge">FREE PLAN ONLY</span>
+          <button type="button" class="sim-reset-link" id="sim-reset" title="Reset queries (debug)">Reset</button>
+        </div>
+
+        <label for="sim-question" class="visually-hidden">Your question</label>
+        <textarea
+          id="sim-question"
+          class="sim-question"
+          rows="3"
+          placeholder="Type any question, e.g. 'What is the best CRM for small businesses?'"
+          spellcheck="true"
+          title="Ask a question related to your industry. The AI Simulator predicts which engines mention your site."
+        ></textarea>
+
+        <button type="button" class="btn-3d btn-3d--sm" id="run-sim">
+          <span class="btn-3d__label">START ANALYSIS</span>
+        </button>
+
+        <div class="sim-results" id="sim-results" hidden>
+          <h4 class="sim-results__title">AI engines that mention your site</h4>
+          <ul class="sim-engines" id="sim-engines"></ul>
+        </div>
+
+        <div class="sim-paywall" id="sim-paywall" hidden>
+          <div class="sim-paywall__icon" aria-hidden="true">⚠</div>
+          <h4>Free query limit reached</h4>
+          <p>You've already used all <strong>3 free queries</strong> available on the Free plan. To process more questions, please upgrade to <strong>Premium</strong> for unlimited AI Simulator queries.</p>
+          <button type="button" class="btn-3d btn-3d--sm" id="sim-paywall-upgrade">
+            <span class="btn-3d__label">UPGRADE TO STARTER</span>
+          </button>
+        </div>
+
+        <!-- Persistent bottom upgrade button (free users only) -->
+        <div class="sim-bottom-upgrade" id="sim-bottom-upgrade">
+          <button type="button" class="btn-3d btn-3d--sm" id="sim-upgrade-cta">
+            <span class="btn-3d__label">UPGRADE TO STARTER</span>
+          </button>
+          <small class="sim-bottom-upgrade__hint">Unlimited queries · all AI engines · priority updates</small>
+        </div>
+      </article>
+
+      <article id="tab-crawler" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-crawler" hidden>
+        <h3 class="panel-title">Crawler View</h3>
+        <p class="panel-lead" id="crawler-lead">🔍 Preview how your page appears to Google, Bing, DuckDuckGo, and Yahoo search engines.</p>
+
+        <!-- Premium-only: search engine preview -->
+        <div class="serp-section" id="serp-section" hidden>
+          <h4 class="serp-section__title">Search Engine Preview</h4>
+          <p class="serp-section__lead">How your page appears in major search engines today.</p>
+          <div class="serp-tabs" role="tablist" aria-label="Search engines">
+            <button type="button" class="serp-tab is-active" data-engine="google" aria-selected="true">Google</button>
+            <button type="button" class="serp-tab" data-engine="bing" aria-selected="false">Bing</button>
+            <button type="button" class="serp-tab" data-engine="duckduckgo" aria-selected="false">DuckDuckGo</button>
+            <button type="button" class="serp-tab" data-engine="yahoo" aria-selected="false">Yahoo</button>
+          </div>
+          <div class="serp-preview" id="serp-preview"></div>
+        </div>
+
+        <!-- Free user: upsell card -->
+        <div class="serp-locked" id="serp-locked" hidden>
+          <div class="serp-locked__icon" aria-hidden="true">🔒</div>
+          <h4>See your page in search engines</h4>
+          <p>Premium users get a live preview of how this URL appears on Google, Bing, DuckDuckGo, and Yahoo &mdash; including title, snippet, breadcrumb, and ranking signals.</p>
+          <button type="button" class="btn-3d btn-3d--sm" id="crawler-upgrade-cta">
+            <span class="btn-3d__label">UPGRADE TO STARTER</span>
+          </button>
+        </div>
+      </article>
+
+      <article id="tab-history" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-history" hidden>
+        <h3 class="panel-title">Audit History</h3>
+        <p class="panel-lead">📈 Track your GEO score improvements over the last 30 days.</p>
+
+        <div id="history-locked" class="serp-locked" hidden>
+          <div class="serp-locked__icon" aria-hidden="true">🔒</div>
+          <h4>View Your Audit History</h4>
+          <p>History tracking is available on the Starter plan and above. Upgrade to see your score progression and improvements.</p>
+          <button type="button" class="btn-3d btn-3d--sm" id="history-upgrade-cta">
+            <span class="btn-3d__label">UPGRADE TO STARTER</span>
+          </button>
+        </div>
+
+        <div id="history-content" hidden>
+          <div id="history-list" class="audit-list">
+            <!-- History items populated by JavaScript -->
+          </div>
+          <div id="history-empty" style="text-align: center; padding: 40px 20px; opacity: 0.7;">
+            <p>No audit history yet. Run your first audit to get started!</p>
+          </div>
+        </div>
+      </article>
+
+      <article id="tab-settings" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-settings" hidden>
+        <h3 class="panel-title">Settings</h3>
+        <p class="panel-lead">⚙️ Personalize your account and manage your subscription plan.</p>
+
+        <div class="settings-list">
+          <div class="setting-row setting-row--stacked">
+            <span class="setting-label">Website URL</span>
+            <div class="setting-url" id="set-url">—</div>
+          </div>
+
+          <label class="setting-row setting-row--stacked">
+            <span class="setting-label">Industry</span>
+            <select id="set-industry">
+              <option value="">Select your industry…</option>
+              <option value="ecommerce">E-commerce / Retail</option>
+              <option value="saas">SaaS / Software</option>
+              <option value="finance">Finance / Banking</option>
+              <option value="healthcare">Healthcare / Medical</option>
+              <option value="education">Education</option>
+              <option value="realestate">Real Estate</option>
+              <option value="travel">Travel / Hospitality</option>
+              <option value="legal">Legal / Law</option>
+              <option value="marketing">Marketing / Agency</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="nonprofit">Non-profit</option>
+              <option value="media">Media / Publishing</option>
+              <option value="food">Food / Restaurant</option>
+              <option value="fitness">Fitness / Wellness</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label class="setting-row setting-row--stacked">
+            <span class="setting-label">Email for digest</span>
+            <input
+              type="email"
+              id="set-email"
+              class="setting-input"
+              placeholder="you@example.com"
+              autocomplete="email"
+              spellcheck="false"
+            >
+            <small class="setting-help">We'll send a weekly summary of your visibility scores.</small>
+          </label>
+
+          <button type="button" class="setting-save" id="set-save">Save settings</button>
+
+          <div class="setting-premium" id="set-premium-card">
+            <div class="setting-premium__free" id="set-premium-free">
+              <div class="setting-premium__head">
+                <span class="setting-premium__title">You're on the Free plan</span>
+                <span class="setting-premium__sub">3 AI Simulator queries · No search engine preview</span>
+              </div>
+              <button type="button" class="btn-3d btn-3d--sm" id="settings-upgrade-cta">
+                <span class="btn-3d__label">UPGRADE TO STARTER</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Debug: Reset plan button (for testing) -->
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2); text-align: center;">
+            <button type="button" class="link-btn" id="reset-plan-btn" title="Reset subscription to Free (testing only)">
+              🔄 Reset Plan to Free (Debug)
+            </button>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <footer class="dash-footer">
+      <button id="dash-back-btn" type="button" class="link-btn">&larr; Back</button>
+      <button id="close-btn" type="button" class="link-btn" style="margin-left: auto;">✕ Exit</button>
+    </footer>
+  </main>
+
+  <script src="popup.js"></script>
+</body>
+</html>

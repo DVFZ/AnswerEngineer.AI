@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verifying Email — AnswerEngineer.AI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      max-width: 400px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255,255,255,0.3);
+      border-top: 4px solid #fff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    p {
+      font-size: 16px;
+      opacity: 0.9;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+    .success {
+      display: none;
+    }
+    .error {
+      display: none;
+      color: #fca5a5;
+    }
+    .icon {
+      font-size: 60px;
+      margin-bottom: 20px;
+      animation: bounce 0.6s ease-in-out;
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    button {
+      background: linear-gradient(135deg, #fde68a 0%, #f472b6 100%);
+      border: none;
+      color: #1e3a8a;
+      padding: 12px 32px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+    .note {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="loading">
+      <div class="spinner"></div>
+      <h1>Verifying Email...</h1>
+      <p>One moment while we activate your subscription.</p>
+    </div>
+
+    <div class="success">
+      <div class="icon">✅</div>
+      <h1>Email Verified!</h1>
+      <p>Your subscription is now active. You can close this window and return to the extension.</p>
+      <button onclick="window.close()">Close</button>
+      <p class="note">Closing in 5 seconds...</p>
+    </div>
+
+    <div class="error">
+      <div class="icon">❌</div>
+      <h1>Verification Failed</h1>
+      <p id="error-message">Invalid or expired verification link. Please try the payment process again.</p>
+      <button onclick="window.close()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    async function verifyEmail() {
+      try {
+        // Get token from URL
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+
+        if (!token) {
+          showError('No verification token provided.');
+          return;
+        }
+
+        console.log('Verifying token:', token);
+
+        // Use the current backend domain (not localhost)
+        const backendUrl = window.location.origin; // This will be https://your-domain.com in production
+        const response = await fetch(`${backendUrl}/api/verify/${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (!response.ok) {
+          showError(data.error || 'Verification failed');
+          return;
+        }
+
+        // Success
+        showSuccess(data);
+      } catch (error) {
+        console.error('Verification error:', error);
+        showError(`Error: ${error.message}`);
+      }
+    }
+
+    function showSuccess(data) {
+      document.querySelector('.loading').style.display = 'none';
+      document.querySelector('.error').style.display = 'none';
+      document.querySelector('.success').style.display = 'block';
+
+      // Auto-close after 5 seconds
+      setTimeout(() => {
+        if (window.opener) {
+          window.opener.location.reload();
+          window.close();
+        } else {
+          window.history.back();
+        }
+      }, 5000);
+    }
+
+    function showError(message) {
+      document.querySelector('.loading').style.display = 'none';
+      document.querySelector('.success').style.display = 'none';
+      document.querySelector('.error').style.display = 'block';
+      document.getElementById('error-message').textContent = message;
+    }
+
+    // Start verification on page load
+    verifyEmail();
+  </script>
+</body>
+</html>

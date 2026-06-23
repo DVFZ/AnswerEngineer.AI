@@ -1,0 +1,44 @@
+{
+  "manifest_version": 3,
+  "name": "AnswerEngineer.AI v1",
+  "version": "1.0.0",
+  "description": "Analyze your website's visibility to AI search engines (ChatGPT, Claude, Gemini, Perplexity) and get CMS-specific remediation steps.",
+  "author": "AnswerEngineer.AI",
+  "homepage_url": "http://AnswerEngineer.Ai",
+  "action": {
+    "default_title": "AnswerEngineer.AI v1",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["dashboard.html"],
+      "matches": ["*://*/*"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content-script-real-audit.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ],
+  "permissions": ["tabs"],
+  "host_permissions": ["http://*/*", "https://*/*"]
+}
