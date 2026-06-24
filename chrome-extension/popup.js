@@ -153,6 +153,30 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (_) {}
   }
 
+  // Verify subscription status with backend to prevent false upgrades
+  // (catches cases where user cancels/closes Stripe without proper redirect)
+  async function verifySubscriptionFromBackend() {
+    const settings = loadSettings();
+    if (!settings.email) return;
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}`);
+      const data = await response.json();
+
+      // If backend says FREE but we think PAID, reset to FREE
+      if (data.plan === 'free' && currentPlan !== 'free') {
+        console.log('[🔒 SECURITY] Backend says FREE but extension had cached PAID plan. Resetting...');
+        currentPlan = 'free';
+        if (currentUrl) setUrlPlan(currentUrl, 'free');
+      }
+    } catch (e) {
+      console.log('Could not verify subscription:', e.message);
+    }
+  }
+
+  // Run verification on startup
+  verifySubscriptionFromBackend();
+
   // Tier definitions
   const TIERS = {
     free: {
