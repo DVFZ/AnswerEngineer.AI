@@ -63,6 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
               .then(res => res.json())
               .then(data => {
                 if (data.plan && data.plan !== 'free') {
+                  // Backend confirms PAID plan
                   currentPlan = data.plan;
                   setUrlPlan(currentUrl, currentPlan);
                   debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
@@ -73,7 +74,24 @@ document.addEventListener("DOMContentLoaded", () => {
                   refreshHistoryUI();
                   refreshSettingsUI();
                 } else {
-                  debug(`📍 No active subscription found`);
+                  // Backend says FREE
+                  if (currentPlan !== 'free') {
+                    // SECURITY: Extension had PAID cached, but backend says FREE
+                    // This happens when user cancels payment
+                    console.log('[🔒 SECURITY] Backend says FREE but extension had cached ' + currentPlan.toUpperCase() + ' plan. Resetting...');
+                    currentPlan = 'free';
+                    setUrlPlan(currentUrl, 'free');
+
+                    // Refresh UIs to show FREE plan
+                    refreshQuotaUI();
+                    refreshCrawlerUI();
+                    refreshHistoryUI();
+                    refreshSettingsUI();
+
+                    debug(`🔄 Reset to FREE (payment was likely cancelled)`);
+                  } else {
+                    debug(`📍 No active subscription found`);
+                  }
                 }
               })
               .catch(err => {
@@ -155,27 +173,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Verify subscription status with backend to prevent false upgrades
   // (catches cases where user cancels/closes Stripe without proper redirect)
+  // Defined here but called later after loadSettings is available
   async function verifySubscriptionFromBackend() {
-    const settings = loadSettings();
-    if (!settings.email) return;
-
     try {
+      const settings = loadSettings();
+      if (!settings.email) return;
+
+      console.log(`[VERIFY] Checking subscription for ${settings.email}...`);
       const response = await fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}`);
       const data = await response.json();
+
+      console.log(`[VERIFY] Backend returned: ${data.plan}`);
 
       // If backend says FREE but we think PAID, reset to FREE
       if (data.plan === 'free' && currentPlan !== 'free') {
         console.log('[🔒 SECURITY] Backend says FREE but extension had cached PAID plan. Resetting...');
         currentPlan = 'free';
         if (currentUrl) setUrlPlan(currentUrl, 'free');
+        refreshQuotaUI?.();
+        refreshCrawlerUI?.();
+        refreshSettingsUI?.();
       }
     } catch (e) {
       console.log('Could not verify subscription:', e.message);
     }
   }
-
-  // Run verification on startup
-  verifySubscriptionFromBackend();
 
   // Tier definitions
   const TIERS = {
