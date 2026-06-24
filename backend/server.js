@@ -297,7 +297,7 @@ app.get('/api/subscription/:email', async (req, res) => {
 });
 
 // ============================================
-// RESET USER TO FREE PLAN (Payment Cancelled)
+// RESET USER TO FREE PLAN (Payment Cancelled) ALONA
 // ============================================
 
 app.post('/api/reset-to-free', async (req, res) => {
