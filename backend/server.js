@@ -54,6 +54,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
 // Serve success page after payment
 app.get('/success', (req, res) => {
   res.sendFile(path.join(__dirname, 'success.html'));
