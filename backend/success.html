@@ -158,16 +158,22 @@
         document.getElementById('sending-email').style.display = 'block';
 
         // Request backend to send magic link
-        const response = await fetch('http://localhost:5000/api/magic-link', {
+        const backendUrl = window.location.origin; // Use same origin (Render)
+        console.log('🔗 Calling magic link endpoint:', `${backendUrl}/api/magic-link`);
+        console.log('📧 Email:', email);
+
+        const response = await fetch(`${backendUrl}/api/magic-link`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email })
         });
 
+        console.log('📊 Response status:', response.status);
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Failed to send magic link');
+          console.error('❌ Response error:', data);
+          throw new Error(data.error || `Failed to send magic link (${response.status})`);
         }
 
         console.log('✅ Magic link sent:', data);

@@ -6,7 +6,7 @@
 // ===================================================================
 // LOCAL DEVELOPMENT: http://localhost:5000
 // PRODUCTION: Update to your deployed backend URL (e.g., https://answerengineer-backend.herokuapp.com)
-const BACKEND_URL = 'http://localhost:5000';
+const BACKEND_URL = 'https://answerengineer-ai.onrender.com';
 
 document.addEventListener("DOMContentLoaded", () => {
   // SECURITY: Clear stale upgrade records to prevent false positives
