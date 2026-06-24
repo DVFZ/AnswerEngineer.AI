@@ -138,7 +138,7 @@ app.post('/api/checkout-session', async (req, res) => {
       ],
       mode: 'subscription',
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}&plan=${plan}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel?email=${encodeURIComponent(email)}`,
     });
 
     console.log(`[CHECKOUT] ✅ Session created:`, session.id);
@@ -293,6 +293,43 @@ app.get('/api/subscription/:email', async (req, res) => {
   } catch (error) {
     console.error('Error checking subscription:', error);
     res.json({ plan: 'free', status: 'inactive' });
+  }
+});
+
+// ============================================
+// RESET USER TO FREE PLAN (Payment Cancelled)
+// ============================================
+
+app.post('/api/reset-to-free', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    console.log(`[RESET] Resetting ${email} to FREE plan (payment cancelled)`);
+
+    // Update user in Supabase to FREE plan
+    const { error } = await supabase
+      .from('users')
+      .upsert({
+        email: email,
+        plan: 'free',
+        status: 'inactive',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'email' });
+
+    if (error) {
+      console.error(`Error resetting ${email}:`, error);
+      return res.status(500).json({ error: 'Failed to reset plan' });
+    }
+
+    console.log(`✅ User ${email} reset to FREE`);
+    res.json({ success: true, message: 'User reset to FREE plan' });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

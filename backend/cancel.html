@@ -92,6 +92,36 @@
       }
     }
 
+    // Get email from URL params (set by Stripe redirect)
+    const url = new URL(window.location);
+    const email = url.searchParams.get('email') || localStorage.getItem('ae_checkout_email');
+
+    // Clear any pending upgrade records when payment is cancelled
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('ae_pending_upgrade_')) {
+          console.log('Clearing pending upgrade:', key);
+          localStorage.removeItem(key);
+        }
+      });
+      console.log('✓ Pending upgrades cleared');
+    } catch (e) {
+      console.error('Error clearing pending upgrades:', e);
+    }
+
+    // Notify backend that payment was cancelled (reset user to FREE)
+    if (email) {
+      fetch('/api/reset-to-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      })
+      .then(r => r.json())
+      .then(data => console.log('✓ User reset to FREE plan'))
+      .catch(e => console.error('Error resetting plan:', e));
+    }
+
     // Auto-close after 8 seconds
     setTimeout(goBack, 8000);
   </script>
