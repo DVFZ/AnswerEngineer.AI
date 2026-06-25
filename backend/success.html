@@ -177,12 +177,8 @@
         }
 
         console.log('✅ Magic link sent:', data);
-
-        // Store verification record with plan details
-        localStorage.setItem('ae_magic_link_sent_' + email, JSON.stringify({
-          plan: plan,
-          timestamp: new Date().toISOString()
-        }));
+        // Note: Domain-specific pending upgrade flag was already set by popup.js
+        // when the user initiated the upgrade. No need to set flags here.
 
         // Show email sent confirmation
         document.getElementById('sending-email').style.display = 'none';
