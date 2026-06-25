@@ -589,7 +589,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (settings.email) {
           debug(`🔄 Re-verifying subscription for ${settings.email}...`);
 
-          const res = await fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}`);
+          // Query domain-specific subscription (NEW: per-domain lookup)
+          const domainName = new URL(currentUrl).hostname;
+          const res = await fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}/${encodeURIComponent(domainName)}`);
           const data = await res.json();
 
           if (data.plan && data.plan !== 'free') {
@@ -1064,6 +1066,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
+      // Get domain for this upgrade
+      const domainName = new URL(currentUrl).hostname;
+
       const response = await fetch(`${BACKEND_URL}/api/checkout-session`, {
         method: "POST",
         headers: {
@@ -1072,7 +1077,8 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({
           email: email,
           plan: "starter",
-          billingPeriod: "monthly"
+          billingPeriod: "monthly",
+          domain: domainName // Include domain for per-domain subscriptions
         }),
         signal: controller.signal
       });

@@ -145,6 +145,7 @@
         console.log('Search params:', window.location.search);
         const email = getUrlParam('email');
         const plan = getUrlParam('plan') || 'starter';
+        const domain = getUrlParam('domain'); // Get domain from Stripe redirect
 
         if (!email) {
           console.error('No email in URL params');
@@ -165,7 +166,7 @@
         const response = await fetch(`${backendUrl}/api/magic-link`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, plan })
+          body: JSON.stringify({ email, plan, domain }) // Include domain for per-domain subscriptions
         });
 
         console.log('📊 Response status:', response.status);

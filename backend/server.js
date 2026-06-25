@@ -95,8 +95,8 @@ const PLANS = {
 // ============================================
 app.post('/api/checkout-session', async (req, res) => {
   try {
-    const { email, plan, billingPeriod } = req.body; // plan: 'starter', 'pro', 'agency'; billingPeriod: 'monthly' or 'annual'
-    console.log(`[CHECKOUT] Received request:`, { email, plan, billingPeriod });
+    const { email, plan, billingPeriod, domain } = req.body; // domain: 'example.com' (for per-domain subscriptions)
+    console.log(`[CHECKOUT] Received request:`, { email, plan, billingPeriod, domain });
 
     if (!email || !plan || !billingPeriod) {
       console.log(`[CHECKOUT] Missing fields`);
@@ -137,8 +137,8 @@ app.post('/api/checkout-session', async (req, res) => {
         },
       ],
       mode: 'subscription',
-      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}&plan=${plan}`,
-      cancel_url: `${process.env.FRONTEND_URL}/cancel?email=${encodeURIComponent(email)}`,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}&plan=${plan}&domain=${encodeURIComponent(domain || '')}`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel?email=${encodeURIComponent(email)}&domain=${encodeURIComponent(domain || '')}`,
     });
 
     console.log(`[CHECKOUT] ✅ Session created:`, session.id);
@@ -168,22 +168,23 @@ setInterval(() => {
 
 app.post('/api/magic-link', async (req, res) => {
   try {
-    const { email, plan } = req.body;
+    const { email, plan, domain } = req.body; // domain: 'example.com' (which domain this subscription is for)
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    console.log(`[MAGIC-LINK] Sending magic link to ${email} for plan: ${plan || 'starter'}`);
+    console.log(`[MAGIC-LINK] Sending magic link to ${email} for plan: ${plan || 'starter'}, domain: ${domain}`);
 
     // Generate a secure token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = Date.now() + (60 * 60 * 1000); // 1 hour (for testing)
 
-    // Store token WITH plan information
+    // Store token WITH plan AND domain information
     magicLinkTokens[token] = {
       email: email,
       plan: plan || 'starter',
+      domain: domain, // Track which domain this subscription is for
       expiresAt: expiresAt
     };
 
@@ -235,21 +236,23 @@ app.get('/api/verify/:token', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired magic link' });
     }
 
-    const { email, plan, expiresAt } = magicLinkTokens[token];
+    const { email, plan, domain, expiresAt } = magicLinkTokens[token];
 
     if (expiresAt < Date.now()) {
       delete magicLinkTokens[token];
       return res.status(400).json({ error: 'Magic link has expired' });
     }
 
-    console.log(`✅ Magic link verified for ${email} | Plan: ${plan}`);
+    console.log(`✅ Magic link verified for ${email} | Plan: ${plan} | Domain: ${domain}`);
 
-    // Store/update user in Supabase with the plan from the magic link
+    // Store/update subscription in Supabase WITH domain information
+    // This ensures subscriptions are per-domain, not global per-email
     const { error } = await supabase
       .from('users')
       .upsert({
         email: email,
         plan: plan || 'starter',
+        domain: domain, // Store which domain this subscription is for
         status: 'active',
         updated_at: new Date().toISOString()
       }, { onConflict: 'email' });
@@ -259,16 +262,17 @@ app.get('/api/verify/:token', async (req, res) => {
       return res.status(500).json({ error: 'Failed to update subscription' });
     }
 
-    console.log(`✅ User ${email} upgraded to ${plan || 'starter'} plan`);
+    console.log(`✅ User ${email} upgraded to ${plan || 'starter'} plan for domain: ${domain}`);
 
     // Delete token after use
     delete magicLinkTokens[token];
 
     res.json({
       success: true,
-      message: `Email verified! Your ${plan || 'starter'} plan is now active.`,
+      message: `Email verified! Your ${plan || 'starter'} plan is now active for ${domain}.`,
       email: email,
-      plan: plan || 'starter'
+      plan: plan || 'starter',
+      domain: domain
     });
   } catch (error) {
     console.error('Token verification error:', error);
@@ -280,11 +284,44 @@ app.get('/api/verify/:token', async (req, res) => {
 // 3. VALIDATE SUBSCRIPTION (Magic Link Flow)
 // ============================================
 
+// Domain-specific subscription lookup (NEW - per-domain)
+app.get('/api/subscription/:email/:domain', async (req, res) => {
+  try {
+    const { email, domain } = req.params;
+
+    // Query Supabase for subscription for THIS specific domain
+    const { data, error } = await supabase
+      .from('users')
+      .select('plan, status, billing_period, domain')
+      .eq('email', email)
+      .eq('domain', domain) // ONLY this domain
+      .single();
+
+    if (error || !data) {
+      console.log(`[SUBSCRIPTION] No subscription found for ${email} on domain ${domain}`);
+      return res.json({ plan: 'free', status: 'inactive', domain: domain });
+    }
+
+    console.log(`[SUBSCRIPTION] Found ${data.plan} for ${email} on ${domain}`);
+    res.json({
+      plan: data.plan || 'free',
+      status: data.status || 'inactive',
+      billingPeriod: data.billing_period,
+      email: email,
+      domain: domain
+    });
+  } catch (error) {
+    console.error('Error checking subscription:', error);
+    res.json({ plan: 'free', status: 'inactive', domain: domain });
+  }
+});
+
+// Global subscription lookup (OLD - for backward compatibility)
 app.get('/api/subscription/:email', async (req, res) => {
   try {
     const { email } = req.params;
 
-    // Query Supabase users table (simpler and works!)
+    // Query Supabase users table (gets first subscription for this email)
     const { data, error } = await supabase
       .from('users')
       .select('plan, status, billing_period')
