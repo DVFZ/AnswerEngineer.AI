@@ -168,21 +168,22 @@ setInterval(() => {
 
 app.post('/api/magic-link', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, plan } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    console.log(`[MAGIC-LINK] Sending magic link to ${email}`);
+    console.log(`[MAGIC-LINK] Sending magic link to ${email} for plan: ${plan || 'starter'}`);
 
     // Generate a secure token
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = Date.now() + (60 * 60 * 1000); // 1 hour (for testing)
 
-    // Store token
+    // Store token WITH plan information
     magicLinkTokens[token] = {
       email: email,
+      plan: plan || 'starter',
       expiresAt: expiresAt
     };
 
@@ -234,30 +235,40 @@ app.get('/api/verify/:token', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or expired magic link' });
     }
 
-    const { email, expiresAt } = magicLinkTokens[token];
+    const { email, plan, expiresAt } = magicLinkTokens[token];
 
     if (expiresAt < Date.now()) {
       delete magicLinkTokens[token];
       return res.status(400).json({ error: 'Magic link has expired' });
     }
 
-    console.log(`✅ Magic link verified for ${email}`);
+    console.log(`✅ Magic link verified for ${email} | Plan: ${plan}`);
 
-    // Store/update user in Supabase
-    await supabase
+    // Store/update user in Supabase with the plan from the magic link
+    const { error } = await supabase
       .from('users')
       .upsert({
         email: email,
-        status: 'active'
+        plan: plan || 'starter',
+        status: 'active',
+        updated_at: new Date().toISOString()
       }, { onConflict: 'email' });
+
+    if (error) {
+      console.error(`Error updating user ${email}:`, error);
+      return res.status(500).json({ error: 'Failed to update subscription' });
+    }
+
+    console.log(`✅ User ${email} upgraded to ${plan || 'starter'} plan`);
 
     // Delete token after use
     delete magicLinkTokens[token];
 
     res.json({
       success: true,
-      message: 'Email verified! You are now signed in.',
-      email: email
+      message: `Email verified! Your ${plan || 'starter'} plan is now active.`,
+      email: email,
+      plan: plan || 'starter'
     });
   } catch (error) {
     console.error('Token verification error:', error);
