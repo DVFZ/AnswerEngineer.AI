@@ -76,22 +76,40 @@ document.addEventListener("DOMContentLoaded", () => {
                     const pending = localStorage.getItem(pendingKey);
 
                     if (pending) {
-                      // This domain initiated an upgrade AND email has STARTER
-                      // This means magic link was verified after upgrade was initiated
-                      console.log(`[DOMAIN-UPGRADE] Applying ${data.plan} to ${domainName} (initiated upgrade + verified)`);
-                      currentPlan = data.plan;
-                      setUrlPlan(currentUrl, currentPlan);
+                      const pendingData = JSON.parse(pending);
+                      const upgradeInitiatedTime = new Date(pendingData.timestamp).getTime();
+                      const now = Date.now();
+                      const timeSinceUpgrade = now - upgradeInitiatedTime;
+                      const TWO_MIN = 2 * 60 * 1000;
+                      const SIXTY_MIN = 60 * 60 * 1000;
 
-                      // Clear the pending flag since upgrade is now confirmed
-                      localStorage.removeItem(pendingKey);
+                      if (timeSinceUpgrade < TWO_MIN) {
+                        // Too soon - user might still be in Stripe checkout
+                        console.log(`[DOMAIN-PENDING] ${domainName} waiting for payment (initiated ${Math.round(timeSinceUpgrade/1000)}s ago)`);
+                        currentPlan = 'free';
+                      } else if (timeSinceUpgrade > SIXTY_MIN) {
+                        // Too old - payment likely never completed (>1 hour)
+                        console.log(`[DOMAIN-STALE] ${domainName} upgrade pending for >1hr, clearing flag`);
+                        localStorage.removeItem(pendingKey);
+                        currentPlan = 'free';
+                      } else {
+                        // Within 2-60 minutes - payment should have completed by now
+                        // Backend saying STARTER means magic link was verified
+                        console.log(`[DOMAIN-UPGRADE] Applying ${data.plan} to ${domainName} (payment completed ${Math.round(timeSinceUpgrade/60000)}min ago)`);
+                        currentPlan = data.plan;
+                        setUrlPlan(currentUrl, currentPlan);
 
-                      debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
+                        // Clear the pending flag since upgrade is confirmed
+                        localStorage.removeItem(pendingKey);
 
-                      // Refresh all UIs to show the upgraded plan
-                      refreshQuotaUI();
-                      refreshCrawlerUI();
-                      refreshHistoryUI();
-                      refreshSettingsUI();
+                        debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
+
+                        // Refresh all UIs to show the upgraded plan
+                        refreshQuotaUI();
+                        refreshCrawlerUI();
+                        refreshHistoryUI();
+                        refreshSettingsUI();
+                      }
                     } else {
                       // Domain didn't initiate upgrade - keep it FREE
                       // This prevents other domains' subscriptions from bleeding in

@@ -178,8 +178,8 @@
 
         console.log('✅ Magic link sent:', data);
 
-        // Store temp upgrade record (will be confirmed when email is verified)
-        localStorage.setItem('ae_pending_upgrade_' + email, JSON.stringify({
+        // Store verification record with plan details
+        localStorage.setItem('ae_magic_link_sent_' + email, JSON.stringify({
           plan: plan,
           timestamp: new Date().toISOString()
         }));
