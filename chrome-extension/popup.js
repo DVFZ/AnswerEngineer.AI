@@ -60,8 +60,9 @@ document.addEventListener("DOMContentLoaded", () => {
           if (settings.email) {
             debug(`🔍 Checking subscription status for ${settings.email}...`);
 
-            // Query backend for subscription status
-            fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}`)
+            // Query backend for domain-specific subscription status
+            const domainName = new URL(currentUrl).hostname;
+            fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}/${encodeURIComponent(domainName)}`)
               .then(res => res.json())
               .then(data => {
                 if (data.plan && data.plan !== 'free') {
@@ -598,7 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Backend says PAID - check pending flag for this domain
             const localPlan = getUrlPlan(currentUrl);
             if (localPlan === 'free') {
-              const domainName = new URL(currentUrl).hostname;
+              // domainName already defined above
               const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
               const pending = localStorage.getItem(pendingKey);
 
