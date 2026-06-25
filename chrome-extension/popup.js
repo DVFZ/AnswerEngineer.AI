@@ -9,12 +9,14 @@
 const BACKEND_URL = 'https://answerengineer-ai.onrender.com';
 
 document.addEventListener("DOMContentLoaded", () => {
-  // SECURITY: Clear stale upgrade records to prevent false positives
-  // Keep upgrade records for up to 1 hour (to allow payment + magic link verification)
+  // SECURITY: Clean up stale upgrade records
+  // Keep domain-specific pending flags indefinitely (cleared only when subscription applied)
+  // This allows users to reload/return later and still get their paid subscription
   try {
     const keys = Object.keys(localStorage);
     keys.forEach(key => {
-      if (key.startsWith('ae_pending_upgrade_')) {
+      // Only clear old email-based flags (ae_pending_upgrade_[email]), not domain-specific ones
+      if (key.startsWith('ae_pending_upgrade_') && !key.startsWith('ae_pending_upgrade_domain_')) {
         const data = JSON.parse(localStorage.getItem(key));
         const age = Date.now() - new Date(data.timestamp).getTime();
         if (age > 60 * 60 * 1000) {  // Older than 1 hour
@@ -619,17 +621,11 @@ document.addEventListener("DOMContentLoaded", () => {
                   refreshSettingsUI();
                 }
               } else {
-                // No pending flag, but backend says STARTER
-                // This means subscription is from a different context (reload after payment)
-                // Trust it if recently updated
-                console.log(`[AUTO-UPGRADE] Applying ${data.plan} to ${domainName} (no pending flag but backend confirms)`);
-                currentPlan = data.plan;
-                setUrlPlan(currentUrl, currentPlan);
-
-                refreshQuotaUI();
-                refreshCrawlerUI();
-                refreshHistoryUI();
-                refreshSettingsUI();
+                // No pending flag for this domain
+                // This means this domain DIDN'T initiate an upgrade
+                // Don't apply the email's global subscription to this domain
+                console.log(`[DOMAIN-PROTECTION] ${domainName} kept FREE (backend has STARTER but no pending flag for THIS domain)`);
+                currentPlan = 'free';
               }
             }
           }
