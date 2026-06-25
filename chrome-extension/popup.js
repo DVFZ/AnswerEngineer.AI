@@ -10,14 +10,14 @@ const BACKEND_URL = 'https://answerengineer-ai.onrender.com';
 
 document.addEventListener("DOMContentLoaded", () => {
   // SECURITY: Clear stale upgrade records to prevent false positives
-  // Only keep upgrade records < 5 seconds old (active checkout windows)
+  // Keep upgrade records for up to 1 hour (to allow payment + magic link verification)
   try {
     const keys = Object.keys(localStorage);
     keys.forEach(key => {
       if (key.startsWith('ae_pending_upgrade_')) {
         const data = JSON.parse(localStorage.getItem(key));
         const age = Date.now() - new Date(data.timestamp).getTime();
-        if (age > 5000) {  // Older than 5 seconds
+        if (age > 60 * 60 * 1000) {  // Older than 1 hour
           localStorage.removeItem(key);
         }
       }
