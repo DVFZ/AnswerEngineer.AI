@@ -1060,15 +1060,15 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
+    // Get domain for this upgrade (declare once, reuse below)
+    const domainName = new URL(currentUrl).hostname;
+
     try {
       debug(`💳 Creating Stripe checkout session for ${email}...`);
 
       // Call backend to create Stripe checkout session (with 10s timeout)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      // Get domain for this upgrade
-      const domainName = new URL(currentUrl).hostname;
 
       const response = await fetch(`${BACKEND_URL}/api/checkout-session`, {
         method: "POST",
@@ -1099,7 +1099,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Store a pending upgrade flag for THIS domain
       // Key is per-domain, not per-email, so each domain tracks its own upgrade
-      const domainName = new URL(currentUrl).hostname;
       const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
       localStorage.setItem(pendingKey, JSON.stringify({
         email: email,
