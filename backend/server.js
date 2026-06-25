@@ -350,31 +350,56 @@ app.get('/api/subscription/:email', async (req, res) => {
 
 app.post('/api/reset-to-free', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, domain } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    console.log(`[RESET] Resetting ${email} to FREE plan (payment cancelled)`);
+    // If domain provided, reset only that domain's subscription
+    // Otherwise reset the global subscription (backward compatibility)
+    if (domain) {
+      console.log(`[RESET] Resetting ${email} to FREE plan for domain: ${domain}`);
 
-    // Update user in Supabase to FREE plan
-    const { error } = await supabase
-      .from('users')
-      .upsert({
-        email: email,
-        plan: 'free',
-        status: 'inactive',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'email' });
+      // Reset domain-specific subscription
+      const { error } = await supabase
+        .from('domain_subscriptions')
+        .upsert({
+          email: email,
+          domain: domain,
+          plan: 'free',
+          status: 'inactive',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'email,domain' });
 
-    if (error) {
-      console.error(`Error resetting ${email}:`, error);
-      return res.status(500).json({ error: 'Failed to reset plan' });
+      if (error) {
+        console.error(`Error resetting ${email}/${domain}:`, error);
+        return res.status(500).json({ error: 'Failed to reset plan' });
+      }
+
+      console.log(`✅ User ${email} reset to FREE for domain: ${domain}`);
+      res.json({ success: true, message: `User reset to FREE plan for ${domain}` });
+    } else {
+      console.log(`[RESET] Resetting ${email} to FREE plan (global)`);
+
+      // Reset global subscription (backward compatibility)
+      const { error } = await supabase
+        .from('users')
+        .upsert({
+          email: email,
+          plan: 'free',
+          status: 'inactive',
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'email' });
+
+      if (error) {
+        console.error(`Error resetting ${email}:`, error);
+        return res.status(500).json({ error: 'Failed to reset plan' });
+      }
+
+      console.log(`✅ User ${email} reset to FREE (global)`);
+      res.json({ success: true, message: 'User reset to FREE plan' });
     }
-
-    console.log(`✅ User ${email} reset to FREE`);
-    res.json({ success: true, message: 'User reset to FREE plan' });
   } catch (error) {
     console.error('Reset error:', error);
     res.status(500).json({ error: error.message });

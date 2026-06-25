@@ -92,9 +92,10 @@
       }
     }
 
-    // Get email from URL params (set by Stripe redirect)
+    // Get email and domain from URL params (set by Stripe redirect)
     const url = new URL(window.location);
     const email = url.searchParams.get('email') || localStorage.getItem('ae_checkout_email');
+    const domain = url.searchParams.get('domain');
 
     // Clear any pending upgrade records when payment is cancelled
     try {
@@ -110,12 +111,17 @@
       console.error('Error clearing pending upgrades:', e);
     }
 
-    // Notify backend that payment was cancelled (reset user to FREE)
+    // Notify backend that payment was cancelled (reset user to FREE for this domain)
     if (email) {
+      const resetBody = { email };
+      if (domain) {
+        resetBody.domain = domain; // Include domain to reset only this domain's subscription
+      }
+
       fetch('/api/reset-to-free', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify(resetBody)
       })
       .then(r => r.json())
       .then(data => console.log('✓ User reset to FREE plan'))

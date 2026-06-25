@@ -1185,13 +1185,14 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Reset in backend (Supabase)
+      // Reset in backend (Supabase) for THIS domain only
       try {
-        debug(`📡 Calling backend to reset ${settings.email} to FREE...`);
+        const domainName = new URL(currentUrl).hostname;
+        debug(`📡 Calling backend to reset ${settings.email} to FREE for domain: ${domainName}...`);
         const response = await fetch(`${BACKEND_URL}/api/reset-to-free`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: settings.email })
+          body: JSON.stringify({ email: settings.email, domain: domainName })
         });
 
         const data = await response.json();
