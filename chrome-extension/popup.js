@@ -70,15 +70,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
                   if (localPlan === 'free') {
                     // This domain hasn't been upgraded yet
-                    // Check if there's a pending upgrade for THIS domain
-                    const pendingKey = 'ae_pending_upgrade_' + settings.email;
+                    // Check if there's a pending upgrade for THIS SPECIFIC DOMAIN
+                    const domainName = new URL(currentUrl).hostname;
+                    const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
                     const pending = localStorage.getItem(pendingKey);
 
                     if (pending) {
-                      // This domain initiated an upgrade, apply the plan
-                      console.log(`[DOMAIN-UPGRADE] Applying ${data.plan} to ${new URL(currentUrl).hostname} (initiated upgrade)`);
+                      // This domain initiated an upgrade AND email has STARTER
+                      // This means magic link was verified after upgrade was initiated
+                      console.log(`[DOMAIN-UPGRADE] Applying ${data.plan} to ${domainName} (initiated upgrade + verified)`);
                       currentPlan = data.plan;
                       setUrlPlan(currentUrl, currentPlan);
+
+                      // Clear the pending flag since upgrade is now confirmed
+                      localStorage.removeItem(pendingKey);
+
                       debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
 
                       // Refresh all UIs to show the upgraded plan
@@ -88,7 +94,8 @@ document.addEventListener("DOMContentLoaded", () => {
                       refreshSettingsUI();
                     } else {
                       // Domain didn't initiate upgrade - keep it FREE
-                      console.log(`[DOMAIN-PROTECTION] ${new URL(currentUrl).hostname} kept FREE (no pending upgrade for this domain)`);
+                      // This prevents other domains' subscriptions from bleeding in
+                      console.log(`[DOMAIN-PROTECTION] ${domainName} kept FREE (this domain did not initiate upgrade)`);
                       currentPlan = 'free';
                     }
                   } else {
@@ -1012,15 +1019,15 @@ document.addEventListener("DOMContentLoaded", () => {
       debug(`✅ Checkout URL received: ${data.url}`);
 
       // Store a pending upgrade flag for THIS domain
-      // This prevents other domains from claiming this subscription
+      // Key is per-domain, not per-email, so each domain tracks its own upgrade
       const domainName = new URL(currentUrl).hostname;
-      const pendingKey = 'ae_pending_upgrade_' + email;
+      const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
       localStorage.setItem(pendingKey, JSON.stringify({
-        domain: domainName,
+        email: email,
         plan: 'starter',
         timestamp: new Date().toISOString()
       }));
-      debug(`📌 Pending upgrade stored for ${domainName}`);
+      debug(`📌 Pending upgrade stored for domain: ${domainName}`);
 
       // Open Stripe checkout in a new tab
       // After payment, success page will send magic link
