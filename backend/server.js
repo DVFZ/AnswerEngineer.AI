@@ -245,20 +245,20 @@ app.get('/api/verify/:token', async (req, res) => {
 
     console.log(`✅ Magic link verified for ${email} | Plan: ${plan} | Domain: ${domain}`);
 
-    // Store/update subscription in Supabase WITH domain information
+    // Store subscription for this domain in domain_subscriptions table
     // This ensures subscriptions are per-domain, not global per-email
     const { error } = await supabase
-      .from('users')
+      .from('domain_subscriptions')
       .upsert({
         email: email,
+        domain: domain,
         plan: plan || 'starter',
-        domain: domain, // Store which domain this subscription is for
         status: 'active',
         updated_at: new Date().toISOString()
-      }, { onConflict: 'email' });
+      }, { onConflict: 'email,domain' });
 
     if (error) {
-      console.error(`Error updating user ${email}:`, error);
+      console.error(`Error updating domain subscription for ${email}/${domain}:`, error);
       return res.status(500).json({ error: 'Failed to update subscription' });
     }
 
@@ -289,10 +289,10 @@ app.get('/api/subscription/:email/:domain', async (req, res) => {
   try {
     const { email, domain } = req.params;
 
-    // Query Supabase for subscription for THIS specific domain
+    // Query domain_subscriptions table for THIS specific domain
     const { data, error } = await supabase
-      .from('users')
-      .select('plan, status, billing_period, domain')
+      .from('domain_subscriptions')
+      .select('plan, status, billing_period')
       .eq('email', email)
       .eq('domain', domain) // ONLY this domain
       .single();
