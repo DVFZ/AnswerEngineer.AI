@@ -1044,7 +1044,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Debug: Reset plan button (for testing payment flow)
   const resetPlanBtn = document.getElementById("reset-plan-btn");
   if (resetPlanBtn) {
-    resetPlanBtn.addEventListener("click", () => {
+    resetPlanBtn.addEventListener("click", async () => {
       if (!currentUrl) {
         alert("No URL set. Please run an audit first.");
         return;
@@ -1053,6 +1053,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const confirmed = confirm(`Reset ${new URL(currentUrl).hostname} back to Free plan?\n\nThis is for testing only.`);
       if (!confirmed) return;
 
+      // Get email to reset in backend
+      const settings = loadSettings();
+      if (!settings.email) {
+        alert("No email set. Please save your email in settings first.");
+        return;
+      }
+
+      // Reset in backend (Supabase)
+      try {
+        debug(`📡 Calling backend to reset ${settings.email} to FREE...`);
+        const response = await fetch(`${BACKEND_URL}/api/reset-to-free`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: settings.email })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Backend reset failed');
+        }
+
+        debug(`✅ Backend reset successful`);
+      } catch (err) {
+        console.error('Backend reset error:', err);
+        alert('Failed to reset in backend: ' + err.message);
+        return;
+      }
+
+      // Reset locally
       currentPlan = "free";
       setUrlPlan(currentUrl, "free");
 
