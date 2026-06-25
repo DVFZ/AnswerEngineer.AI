@@ -64,15 +64,44 @@ document.addEventListener("DOMContentLoaded", () => {
               .then(data => {
                 if (data.plan && data.plan !== 'free') {
                   // Backend confirms PAID plan
-                  currentPlan = data.plan;
-                  setUrlPlan(currentUrl, currentPlan);
-                  debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
+                  // BUT: Only apply it to THIS DOMAIN if THIS DOMAIN explicitly upgraded
+                  // This prevents another domain's subscription from applying here
+                  const localPlan = getUrlPlan(currentUrl);
 
-                  // Refresh all UIs to show the upgraded plan
-                  refreshQuotaUI();
-                  refreshCrawlerUI();
-                  refreshHistoryUI();
-                  refreshSettingsUI();
+                  if (localPlan === 'free') {
+                    // This domain hasn't been upgraded yet
+                    // Check if there's a pending upgrade for THIS domain
+                    const pendingKey = 'ae_pending_upgrade_' + settings.email;
+                    const pending = localStorage.getItem(pendingKey);
+
+                    if (pending) {
+                      // This domain initiated an upgrade, apply the plan
+                      console.log(`[DOMAIN-UPGRADE] Applying ${data.plan} to ${new URL(currentUrl).hostname} (initiated upgrade)`);
+                      currentPlan = data.plan;
+                      setUrlPlan(currentUrl, currentPlan);
+                      debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
+
+                      // Refresh all UIs to show the upgraded plan
+                      refreshQuotaUI();
+                      refreshCrawlerUI();
+                      refreshHistoryUI();
+                      refreshSettingsUI();
+                    } else {
+                      // Domain didn't initiate upgrade - keep it FREE
+                      console.log(`[DOMAIN-PROTECTION] ${new URL(currentUrl).hostname} kept FREE (no pending upgrade for this domain)`);
+                      currentPlan = 'free';
+                    }
+                  } else {
+                    // Domain is already paid (has local plan), keep it
+                    currentPlan = localPlan;
+                    debug(`✅ Subscription verified: ${currentPlan.toUpperCase()}`);
+
+                    // Refresh all UIs to show the upgraded plan
+                    refreshQuotaUI();
+                    refreshCrawlerUI();
+                    refreshHistoryUI();
+                    refreshSettingsUI();
+                  }
                 } else {
                   // Backend says FREE
                   if (currentPlan !== 'free') {
@@ -981,6 +1010,17 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       debug(`✅ Checkout URL received: ${data.url}`);
+
+      // Store a pending upgrade flag for THIS domain
+      // This prevents other domains from claiming this subscription
+      const domainName = new URL(currentUrl).hostname;
+      const pendingKey = 'ae_pending_upgrade_' + email;
+      localStorage.setItem(pendingKey, JSON.stringify({
+        domain: domainName,
+        plan: 'starter',
+        timestamp: new Date().toISOString()
+      }));
+      debug(`📌 Pending upgrade stored for ${domainName}`);
 
       // Open Stripe checkout in a new tab
       // After payment, success page will send magic link
