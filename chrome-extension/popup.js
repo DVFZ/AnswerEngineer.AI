@@ -565,7 +565,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // ---------- Screen 1 -> Screen 3 (direct audit) ----------
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const url = normalizeUrl(input.value);
 
@@ -580,49 +580,59 @@ document.addEventListener("DOMContentLoaded", () => {
       // Load plan for this specific URL (per-domain)
       currentPlan = getUrlPlan(currentUrl);
 
-      // RE-CHECK subscription from backend before audit
+      // RE-CHECK subscription from backend before audit (WAIT for it to complete)
       // (in case user just completed payment while popup was open)
       try {
         const settings = loadSettings();
         if (settings.email) {
           debug(`🔄 Re-verifying subscription for ${settings.email}...`);
 
-          fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}`)
-            .then(res => res.json())
-            .then(data => {
-              if (data.plan && data.plan !== 'free') {
-                // Backend says PAID - check pending flag for this domain
-                const localPlan = getUrlPlan(currentUrl);
-                if (localPlan === 'free') {
-                  const domainName = new URL(currentUrl).hostname;
-                  const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
-                  const pending = localStorage.getItem(pendingKey);
+          const res = await fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}`);
+          const data = await res.json();
 
-                  if (pending) {
-                    const pendingData = JSON.parse(pending);
-                    const upgradeInitiatedTime = new Date(pendingData.timestamp).getTime();
-                    const now = Date.now();
-                    const timeSinceUpgrade = now - upgradeInitiatedTime;
-                    const TWO_MIN = 2 * 60 * 1000;
-                    const SIXTY_MIN = 60 * 60 * 1000;
+          if (data.plan && data.plan !== 'free') {
+            // Backend says PAID - check pending flag for this domain
+            const localPlan = getUrlPlan(currentUrl);
+            if (localPlan === 'free') {
+              const domainName = new URL(currentUrl).hostname;
+              const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
+              const pending = localStorage.getItem(pendingKey);
 
-                    if (timeSinceUpgrade > TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
-                      // Payment likely completed
-                      debug(`✅ Payment completed! Applying ${data.plan} to ${domainName}`);
-                      currentPlan = data.plan;
-                      setUrlPlan(currentUrl, currentPlan);
-                      localStorage.removeItem(pendingKey);
+              if (pending) {
+                const pendingData = JSON.parse(pending);
+                const upgradeInitiatedTime = new Date(pendingData.timestamp).getTime();
+                const now = Date.now();
+                const timeSinceUpgrade = now - upgradeInitiatedTime;
+                const TWO_MIN = 2 * 60 * 1000;
+                const SIXTY_MIN = 60 * 60 * 1000;
 
-                      refreshQuotaUI();
-                      refreshCrawlerUI();
-                      refreshHistoryUI();
-                      refreshSettingsUI();
-                    }
-                  }
+                if (timeSinceUpgrade > TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
+                  // Payment likely completed
+                  debug(`✅ Payment completed! Applying ${data.plan} to ${domainName}`);
+                  currentPlan = data.plan;
+                  setUrlPlan(currentUrl, currentPlan);
+                  localStorage.removeItem(pendingKey);
+
+                  refreshQuotaUI();
+                  refreshCrawlerUI();
+                  refreshHistoryUI();
+                  refreshSettingsUI();
                 }
+              } else {
+                // No pending flag, but backend says STARTER
+                // This means subscription is from a different context (reload after payment)
+                // Trust it if recently updated
+                console.log(`[AUTO-UPGRADE] Applying ${data.plan} to ${domainName} (no pending flag but backend confirms)`);
+                currentPlan = data.plan;
+                setUrlPlan(currentUrl, currentPlan);
+
+                refreshQuotaUI();
+                refreshCrawlerUI();
+                refreshHistoryUI();
+                refreshSettingsUI();
               }
-            })
-            .catch(err => console.log('Subscription re-check error:', err));
+            }
+          }
         }
       } catch (e) {
         console.log('Error during subscription re-check:', e);
