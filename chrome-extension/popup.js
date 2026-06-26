@@ -13,11 +13,70 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Placeholder activation modal - will be implemented with a simpler approach later
+  // Simple toast notification for subscription activation
   showActivationModal = function(timeRemaining) {
-    // No-op: banner functionality will be re-implemented with a simpler, more stable approach
-    console.log(`[ACTIVATION] Timer: ${timeRemaining}s remaining`);
+    // Only show toast once per activation (when we hit the 2-minute mark)
+    if (timeRemaining > 110) {
+      // Create toast container if it doesn't exist
+      let toastContainer = document.getElementById('ae-toast-container');
+      if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'ae-toast-container';
+        toastContainer.style.cssText = `
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 9999;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        `;
+        document.body.appendChild(toastContainer);
+      }
+
+      // Create toast message
+      const toast = document.createElement('div');
+      toast.style.cssText = `
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-size: 13px;
+        font-weight: 500;
+        margin-bottom: 10px;
+        animation: slideIn 0.3s ease-out;
+      `;
+      toast.textContent = '✅ Subscription Activated! Your Starter plan is now active.';
+
+      toastContainer.appendChild(toast);
+
+      // Auto-remove after 3 seconds
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => {
+          if (toast.parentElement) {
+            toast.parentElement.removeChild(toast);
+          }
+        }, 300);
+      }, 3000);
+    }
   };
+
+  // Add animation styles for toast
+  const toastStyle = document.createElement('style');
+  toastStyle.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+  `;
+  document.head.appendChild(toastStyle);
 
   // SECURITY: Clean up stale upgrade records
   // Keep domain-specific pending flags indefinitely (cleared only when subscription applied)
