@@ -13,149 +13,56 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Persistent notification with countdown timer for subscription activation
-  let activationNotificationTimer = null;
-
+  // Brief info toast for subscription activation
   showActivationModal = function(timeRemaining) {
-    // Clear any existing timer to prevent duplicates
-    if (activationNotificationTimer) {
-      clearInterval(activationNotificationTimer);
-    }
-
-    // Get or create notification container
-    let notificationBar = document.getElementById('ae-activation-bar');
-    if (!notificationBar) {
-      notificationBar = document.createElement('div');
-      notificationBar.id = 'ae-activation-bar';
-      notificationBar.style.cssText = `
+    // Get or create toast container
+    let toastContainer = document.getElementById('ae-activation-toast');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'ae-activation-toast';
+      toastContainer.style.cssText = `
         position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
-        color: white;
-        padding: 16px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
         z-index: 10000;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       `;
-      notificationBar.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
-          <span style="font-size: 28px; animation: pulse 2s infinite;" class="ae-icon-pulse">⏳</span>
-          <div>
-            <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Activating Starter Plan</div>
-            <div style="font-size: 13px; opacity: 0.9;">Your subscription is being set up — please wait</div>
-          </div>
-        </div>
-        <div style="
-          background: rgba(255,255,255,0.2);
-          border-radius: 8px;
-          padding: 8px 16px;
-          font-weight: 700;
-          text-align: center;
-          white-space: nowrap;
-          border: 2px solid rgba(255,255,255,0.3);
-          min-width: 80px;
-        ">
-          <div id="ae-timer-display" style="font-size: 18px; line-height: 1.2;">2:00</div>
-          <div style="font-size: 11px; opacity: 0.85; margin-top: 2px;">remaining</div>
-        </div>
-      `;
-      document.body.insertBefore(notificationBar, document.body.firstChild);
-      // Add top padding to body to account for the bar
-      document.body.style.paddingTop = '90px';
+      document.body.appendChild(toastContainer);
     }
 
-    // Update timer every second
-    const timerDisplay = document.getElementById('ae-timer-display');
-    activationNotificationTimer = setInterval(() => {
-      timeRemaining--;
-      const minutes = Math.floor(timeRemaining / 60);
-      const seconds = timeRemaining % 60;
-      if (timerDisplay) {
-        const secondsStr = seconds < 10 ? '0' + seconds : seconds;
-        timerDisplay.textContent = minutes + ':' + secondsStr;
-      }
+    // Create toast message
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      color: white;
+      padding: 14px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      max-width: 400px;
+      text-align: center;
+    `;
+    toast.innerHTML = `
+      <div style="margin-bottom: 4px;">ℹ️ Subscription activating...</div>
+      <div style="font-size: 12px; opacity: 0.9;">This may take up to 2 minutes to appear</div>
+    `;
 
-      // When timer reaches 0, verify subscription and update UI
-      if (timeRemaining <= 0) {
-        clearInterval(activationNotificationTimer);
+    toastContainer.appendChild(toast);
 
-        // Re-verify subscription from backend
-        const settings = loadSettings();
-        if (settings.email && currentUrl) {
-          const domainName = new URL(currentUrl).hostname;
-          fetch(BACKEND_URL + '/api/subscription/' + encodeURIComponent(settings.email) + '/' + encodeURIComponent(domainName))
-            .then(res => res.json())
-            .then(data => {
-              if (data.plan && data.plan !== 'free') {
-                // Subscription confirmed! Apply it
-                currentPlan = data.plan;
-                setUrlPlan(currentUrl, currentPlan);
-
-                // Show success message
-                const successMsg = notificationBar.querySelector('div:first-child div:last-child');
-                if (successMsg) {
-                  successMsg.innerHTML = '<div style="font-weight: 700; font-size: 16px; color: #10b981;">✅ Subscription Activated!</div><div style="font-size: 13px; opacity: 0.9;">Your Starter plan is now active</div>';
-                }
-                const timerBox = notificationBar.querySelector('div:last-child');
-                if (timerBox) {
-                  timerBox.style.display = 'none';
-                }
-
-                // Refresh UI
-                refreshQuotaUI();
-                refreshCrawlerUI();
-                refreshHistoryUI();
-                refreshSettingsUI();
-              }
-
-              // Hide notification after 2 seconds
-              setTimeout(() => {
-                notificationBar.style.transition = 'opacity 0.4s ease-out';
-                notificationBar.style.opacity = '0';
-                setTimeout(() => {
-                  if (notificationBar.parentElement) {
-                    notificationBar.parentElement.removeChild(notificationBar);
-                  }
-                  document.body.style.paddingTop = '0';
-                }, 400);
-              }, 2000);
-            })
-            .catch(err => {
-              console.error('Error verifying subscription:', err);
-              // Hide notification anyway
-              setTimeout(() => {
-                notificationBar.style.transition = 'opacity 0.4s ease-out';
-                notificationBar.style.opacity = '0';
-                setTimeout(() => {
-                  if (notificationBar.parentElement) {
-                    notificationBar.parentElement.removeChild(notificationBar);
-                  }
-                  document.body.style.paddingTop = '0';
-                }, 400);
-              }, 2000);
-            });
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.4s ease-out';
+      toast.style.opacity = '0';
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.parentElement.removeChild(toast);
         }
-      }
-    }, 1000);
+      }, 400);
+    }, 5000);
   };
 
-  // Add animation styles for notification bar
-  const notificationStyle = document.createElement('style');
-  notificationStyle.textContent = `
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.8; }
-    }
-    .ae-icon-pulse {
-      animation: pulse 2s infinite;
-    }
-  `;
-  document.head.appendChild(notificationStyle);
 
   // SECURITY: Clean up stale upgrade records
   // Keep domain-specific pending flags indefinitely (cleared only when subscription applied)
@@ -772,14 +679,19 @@ document.addEventListener("DOMContentLoaded", () => {
                   const timeRemaining = Math.max(0, Math.ceil((TWO_MIN - timeSinceUpgrade) / 1000));
                   showActivationModal(timeRemaining);
                 } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
-                  // Activation in progress - show modal with remaining time
-                  const pendingTime = new Date(pendingData.timestamp).getTime();
-                  const activationWindowEnd = pendingTime + (2 * TWO_MIN);
-                  const timeRemaining = Math.max(0, Math.ceil((activationWindowEnd - Date.now()) / 1000));
-                  debug(`⏳ Subscription activating for ${domainName} (${timeRemaining}s remaining)`);
-                  currentPlan = data.plan; // Backend confirmed STARTER, apply it
+                  // Debounce window complete - apply STARTER now
+                  debug(`✅ Payment completed! Applying ${data.plan} to ${domainName}`);
+                  currentPlan = data.plan;
                   setUrlPlan(currentUrl, currentPlan);
-                  showActivationModal(timeRemaining); // Show modal for UX
+                  localStorage.removeItem(pendingKey);
+
+                  // Show info toast to user
+                  showActivationModal(timeRemaining);
+
+                  refreshQuotaUI();
+                  refreshCrawlerUI();
+                  refreshHistoryUI();
+                  refreshSettingsUI();
                 } else if (timeSinceUpgrade >= SIXTY_MIN) {
                   // Too old - payment likely never completed (>1 hour)
                   debug(`⏳ Upgrade pending for >1hr, assuming failed`);
