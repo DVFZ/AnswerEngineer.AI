@@ -15,8 +15,14 @@ let activationTimerInterval = null; // Prevent multiple timers
 document.addEventListener("DOMContentLoaded", () => {
   // Simple toast notification for subscription activation
   showActivationModal = function(timeRemaining) {
-    // Only show toast once per activation (when we hit the 2-minute mark)
-    if (timeRemaining > 110) {
+    // Check if we've already shown the toast for this activation
+    const toastShownKey = 'ae_activation_toast_shown';
+    const alreadyShown = localStorage.getItem(toastShownKey) === 'true';
+
+    if (!alreadyShown) {
+      // Mark that we're showing the toast
+      localStorage.setItem(toastShownKey, 'true');
+
       // Create toast container if it doesn't exist
       let toastContainer = document.getElementById('ae-toast-container');
       if (!toastContainer) {
@@ -57,6 +63,8 @@ document.addEventListener("DOMContentLoaded", () => {
           if (toast.parentElement) {
             toast.parentElement.removeChild(toast);
           }
+          // Clear the flag after toast is gone so it can show again on next session
+          localStorage.removeItem(toastShownKey);
         }, 300);
       }, 3000);
     }
