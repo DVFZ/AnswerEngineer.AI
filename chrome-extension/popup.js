@@ -75,7 +75,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const minutes = Math.floor(timeRemaining / 60);
       const seconds = timeRemaining % 60;
       if (timerDisplay) {
-        timerDisplay.textContent = \`\${minutes}:\${seconds < 10 ? '0' : ''}\${seconds}\`;
+        const secondsStr = seconds < 10 ? '0' + seconds : seconds;
+        timerDisplay.textContent = minutes + ':' + secondsStr;
       }
 
       // When timer reaches 0, hide the notification
