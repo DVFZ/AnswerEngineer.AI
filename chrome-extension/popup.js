@@ -13,61 +13,84 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Simple toast notification for subscription activation
+  // Persistent notification with countdown timer for subscription activation
+  let activationNotificationTimer = null;
+
   showActivationModal = function(timeRemaining) {
-    // Check if we've already shown the toast for this activation
-    const toastShownKey = 'ae_activation_toast_shown';
-    const alreadyShown = localStorage.getItem(toastShownKey) === 'true';
+    // Clear any existing timer to prevent duplicates
+    if (activationNotificationTimer) {
+      clearInterval(activationNotificationTimer);
+    }
 
-    if (!alreadyShown) {
-      // Mark that we're showing the toast
-      localStorage.setItem(toastShownKey, 'true');
-
-      // Create toast container if it doesn't exist
-      let toastContainer = document.getElementById('ae-toast-container');
-      if (!toastContainer) {
-        toastContainer = document.createElement('div');
-        toastContainer.id = 'ae-toast-container';
-        toastContainer.style.cssText = `
-          position: fixed;
-          bottom: 20px;
-          right: 20px;
-          z-index: 9999;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        `;
-        document.body.appendChild(toastContainer);
-      }
-
-      // Create toast message
-      const toast = document.createElement('div');
-      toast.style.cssText = `
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    // Get or create notification container
+    let notificationBar = document.getElementById('ae-activation-bar');
+    if (!notificationBar) {
+      notificationBar = document.createElement('div');
+      notificationBar.id = 'ae-activation-bar';
+      notificationBar.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
         color: white;
         padding: 12px 16px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 10000;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 13px;
-        font-weight: 500;
-        margin-bottom: 10px;
-        animation: slideIn 0.3s ease-out;
       `;
-      toast.textContent = '✅ Subscription Activated! Your Starter plan is now active.';
-
-      toastContainer.appendChild(toast);
-
-      // Auto-remove after 3 seconds
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.3s ease-out';
-        setTimeout(() => {
-          if (toast.parentElement) {
-            toast.parentElement.removeChild(toast);
-          }
-          // Clear the flag after toast is gone so it can show again on next session
-          localStorage.removeItem(toastShownKey);
-        }, 300);
-      }, 3000);
+      notificationBar.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 18px;">⏳</span>
+          <div>
+            <div style="font-weight: 600; margin-bottom: 2px;">Activating Starter Plan</div>
+            <div style="font-size: 11px; opacity: 0.85;">Your subscription is being set up</div>
+          </div>
+        </div>
+        <div style="
+          background: rgba(255,255,255,0.15);
+          border-radius: 6px;
+          padding: 6px 12px;
+          font-weight: 600;
+          text-align: center;
+          white-space: nowrap;
+        ">
+          <div id="ae-timer-display" style="font-size: 14px;">2:00</div>
+          <div style="font-size: 10px; opacity: 0.8;">remaining</div>
+        </div>
+      `;
+      document.body.insertBefore(notificationBar, document.body.firstChild);
+      // Add top padding to body to account for the bar
+      document.body.style.paddingTop = '70px';
     }
+
+    // Update timer every second
+    const timerDisplay = document.getElementById('ae-timer-display');
+    activationNotificationTimer = setInterval(() => {
+      timeRemaining--;
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      if (timerDisplay) {
+        timerDisplay.textContent = \`\${minutes}:\${seconds < 10 ? '0' : ''}\${seconds}\`;
+      }
+
+      // When timer reaches 0, hide the notification
+      if (timeRemaining <= 0) {
+        clearInterval(activationNotificationTimer);
+        notificationBar.style.transition = 'opacity 0.4s ease-out';
+        notificationBar.style.opacity = '0';
+        setTimeout(() => {
+          if (notificationBar.parentElement) {
+            notificationBar.parentElement.removeChild(notificationBar);
+          }
+          document.body.style.paddingTop = '0';
+        }, 400);
+      }
+    }, 1000);
   };
 
   // Add animation styles for toast
