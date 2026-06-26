@@ -8,7 +8,96 @@
 // PRODUCTION: Update to your deployed backend URL (e.g., https://answerengineer-backend.herokuapp.com)
 const BACKEND_URL = 'https://answerengineer-ai.onrender.com';
 
+// Global activation modal placeholder - will be set up in DOMContentLoaded
+let showActivationModal = null;
+
 document.addEventListener("DOMContentLoaded", () => {
+  // Create subscription activation modal
+  const activationModal = document.createElement('div');
+  activationModal.id = 'ae-activation-modal';
+  activationModal.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+  `;
+  activationModal.innerHTML = `
+    <div style="
+      background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 320px;
+      text-align: center;
+      color: white;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    ">
+      <div style="font-size: 48px; margin-bottom: 15px; animation: pulse 2s infinite;">⏳</div>
+      <h2 style="font-size: 20px; margin-bottom: 10px; font-weight: 600;">Activating Starter Plan</h2>
+      <p style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
+        Your subscription is being set up. This usually takes less than 2 minutes.
+      </p>
+      <div style="
+        background: rgba(255,255,255,0.1);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 20px;
+        font-size: 12px;
+        opacity: 0.85;
+      ">
+        <div style="margin-bottom: 8px;">
+          <div style="display: inline-block; width: 20px; height: 20px; background: rgba(253,230,138,0.5); border-radius: 50%; margin-right: 8px;">⏱</div>
+          <span id="ae-activation-timer">1:59</span> remaining
+        </div>
+      </div>
+      <button onclick="document.getElementById('ae-activation-modal').style.display='none'" style="
+        background: rgba(253,230,138,0.2);
+        border: 1px solid rgba(253,230,138,0.5);
+        color: #fde68a;
+        padding: 8px 20px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+      " onmouseover="this.style.background='rgba(253,230,138,0.3)'" onmouseout="this.style.background='rgba(253,230,138,0.2)'">
+        Dismiss
+      </button>
+    </div>
+    <style>
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.1); opacity: 0.8; }
+      }
+    </style>
+  `;
+  document.body.appendChild(activationModal);
+
+  // Function to show activation modal (assigned to global so it can be called from subscription check)
+  showActivationModal = function(timeRemaining) {
+    activationModal.style.display = 'flex';
+    const timerEl = document.getElementById('ae-activation-timer');
+
+    // Update timer every second
+    const timerInterval = setInterval(() => {
+      timeRemaining--;
+      const minutes = Math.floor(timeRemaining / 60);
+      const seconds = timeRemaining % 60;
+      if (timerEl) {
+        timerEl.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+      }
+      if (timeRemaining <= 0) {
+        clearInterval(timerInterval);
+        activationModal.style.display = 'none';
+      }
+    }, 1000);
+  };
+
   // SECURITY: Clean up stale upgrade records
   // Keep domain-specific pending flags indefinitely (cleared only when subscription applied)
   // This allows users to reload/return later and still get their paid subscription
@@ -90,6 +179,11 @@ document.addEventListener("DOMContentLoaded", () => {
                         // Too soon - user might still be in Stripe checkout
                         console.log(`[DOMAIN-PENDING] ${domainName} waiting for payment (initiated ${Math.round(timeSinceUpgrade/1000)}s ago)`);
                         currentPlan = 'free';
+                      } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
+                        // Activation in progress - show modal
+                        const timeRemaining = Math.max(0, Math.ceil((SIXTY_MIN - timeSinceUpgrade) / 1000));
+                        console.log(`[DOMAIN-ACTIVATING] Showing activation modal for ${domainName} (${Math.round(timeSinceUpgrade/1000)}s elapsed)`);
+                        showActivationModal(timeRemaining);
                       } else if (timeSinceUpgrade > SIXTY_MIN) {
                         // Too old - payment likely never completed (>1 hour)
                         console.log(`[DOMAIN-STALE] ${domainName} upgrade pending for >1hr, clearing flag`);
@@ -611,7 +705,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 const TWO_MIN = 2 * 60 * 1000;
                 const SIXTY_MIN = 60 * 60 * 1000;
 
-                if (timeSinceUpgrade > TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
+                if (timeSinceUpgrade < TWO_MIN) {
+                  // Still waiting for payment to complete
+                  debug(`⏳ Subscription pending (${Math.round(timeSinceUpgrade/1000)}s elapsed) - waiting for activation`);
+                  currentPlan = 'free';
+                  const timeRemaining = Math.max(0, Math.ceil((TWO_MIN - timeSinceUpgrade) / 1000));
+                  showActivationModal(timeRemaining);
+                } else if (timeSinceUpgrade > TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
                   // Payment likely completed
                   debug(`✅ Payment completed! Applying ${data.plan} to ${domainName}`);
                   currentPlan = data.plan;

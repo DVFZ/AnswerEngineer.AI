@@ -98,9 +98,15 @@
     <div class="success">
       <div class="icon">✅</div>
       <h1>Email Verified!</h1>
-      <p>Your subscription is now active. You can close this window and return to the extension.</p>
-      <button onclick="window.close()">Close</button>
-      <p class="note">Closing in 5 seconds...</p>
+      <p><strong>Your Starter subscription is activating...</strong></p>
+      <p style="font-size: 14px; opacity: 0.85; margin: 15px 0;">
+        This may take up to 2 minutes to appear in the extension. You'll see a confirmation message when it's ready.
+      </p>
+      <div id="countdown" style="font-size: 12px; opacity: 0.7; margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+        Closing in <span id="countdown-num">5</span> seconds...
+      </div>
+      <button onclick="closeNow()">Return to Extension Now</button>
+      <p class="note">The extension will show your Starter plan once fully activated</p>
     </div>
 
     <div class="error">
@@ -148,15 +154,26 @@
       document.querySelector('.error').style.display = 'none';
       document.querySelector('.success').style.display = 'block';
 
-      // Auto-close after 5 seconds
-      setTimeout(() => {
-        if (window.opener) {
-          window.opener.location.reload();
-          window.close();
-        } else {
-          window.history.back();
+      // Countdown timer
+      let remaining = 5;
+      const countdownEl = document.getElementById('countdown-num');
+      const interval = setInterval(() => {
+        remaining--;
+        if (countdownEl) countdownEl.textContent = remaining;
+        if (remaining <= 0) {
+          clearInterval(interval);
+          closeNow();
         }
-      }, 5000);
+      }, 1000);
+    }
+
+    function closeNow() {
+      if (window.opener) {
+        window.opener.location.reload();
+        window.close();
+      } else {
+        window.history.back();
+      }
     }
 
     function showError(message) {
