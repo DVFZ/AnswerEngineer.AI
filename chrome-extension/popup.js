@@ -34,38 +34,39 @@ document.addEventListener("DOMContentLoaded", () => {
         right: 0;
         background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
         color: white;
-        padding: 12px 16px;
+        padding: 16px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
         z-index: 10000;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        font-size: 13px;
       `;
       notificationBar.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <span style="font-size: 18px;">⏳</span>
+        <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+          <span style="font-size: 28px; animation: pulse 2s infinite;" class="ae-icon-pulse">⏳</span>
           <div>
-            <div style="font-weight: 600; margin-bottom: 2px;">Activating Starter Plan</div>
-            <div style="font-size: 11px; opacity: 0.85;">Your subscription is being set up</div>
+            <div style="font-weight: 700; font-size: 16px; margin-bottom: 4px;">Activating Starter Plan</div>
+            <div style="font-size: 13px; opacity: 0.9;">Your subscription is being set up — please wait</div>
           </div>
         </div>
         <div style="
-          background: rgba(255,255,255,0.15);
-          border-radius: 6px;
-          padding: 6px 12px;
-          font-weight: 600;
+          background: rgba(255,255,255,0.2);
+          border-radius: 8px;
+          padding: 8px 16px;
+          font-weight: 700;
           text-align: center;
           white-space: nowrap;
+          border: 2px solid rgba(255,255,255,0.3);
+          min-width: 80px;
         ">
-          <div id="ae-timer-display" style="font-size: 14px;">2:00</div>
-          <div style="font-size: 10px; opacity: 0.8;">remaining</div>
+          <div id="ae-timer-display" style="font-size: 18px; line-height: 1.2;">2:00</div>
+          <div style="font-size: 11px; opacity: 0.85; margin-top: 2px;">remaining</div>
         </div>
       `;
       document.body.insertBefore(notificationBar, document.body.firstChild);
       // Add top padding to body to account for the bar
-      document.body.style.paddingTop = '70px';
+      document.body.style.paddingTop = '90px';
     }
 
     // Update timer every second
@@ -79,36 +80,82 @@ document.addEventListener("DOMContentLoaded", () => {
         timerDisplay.textContent = minutes + ':' + secondsStr;
       }
 
-      // When timer reaches 0, hide the notification
+      // When timer reaches 0, verify subscription and update UI
       if (timeRemaining <= 0) {
         clearInterval(activationNotificationTimer);
-        notificationBar.style.transition = 'opacity 0.4s ease-out';
-        notificationBar.style.opacity = '0';
-        setTimeout(() => {
-          if (notificationBar.parentElement) {
-            notificationBar.parentElement.removeChild(notificationBar);
-          }
-          document.body.style.paddingTop = '0';
-        }, 400);
+
+        // Re-verify subscription from backend
+        const settings = loadSettings();
+        if (settings.email && currentUrl) {
+          const domainName = new URL(currentUrl).hostname;
+          fetch(BACKEND_URL + '/api/subscription/' + encodeURIComponent(settings.email) + '/' + encodeURIComponent(domainName))
+            .then(res => res.json())
+            .then(data => {
+              if (data.plan && data.plan !== 'free') {
+                // Subscription confirmed! Apply it
+                currentPlan = data.plan;
+                setUrlPlan(currentUrl, currentPlan);
+
+                // Show success message
+                const successMsg = notificationBar.querySelector('div:first-child div:last-child');
+                if (successMsg) {
+                  successMsg.innerHTML = '<div style="font-weight: 700; font-size: 16px; color: #10b981;">✅ Subscription Activated!</div><div style="font-size: 13px; opacity: 0.9;">Your Starter plan is now active</div>';
+                }
+                const timerBox = notificationBar.querySelector('div:last-child');
+                if (timerBox) {
+                  timerBox.style.display = 'none';
+                }
+
+                // Refresh UI
+                refreshQuotaUI();
+                refreshCrawlerUI();
+                refreshHistoryUI();
+                refreshSettingsUI();
+              }
+
+              // Hide notification after 2 seconds
+              setTimeout(() => {
+                notificationBar.style.transition = 'opacity 0.4s ease-out';
+                notificationBar.style.opacity = '0';
+                setTimeout(() => {
+                  if (notificationBar.parentElement) {
+                    notificationBar.parentElement.removeChild(notificationBar);
+                  }
+                  document.body.style.paddingTop = '0';
+                }, 400);
+              }, 2000);
+            })
+            .catch(err => {
+              console.error('Error verifying subscription:', err);
+              // Hide notification anyway
+              setTimeout(() => {
+                notificationBar.style.transition = 'opacity 0.4s ease-out';
+                notificationBar.style.opacity = '0';
+                setTimeout(() => {
+                  if (notificationBar.parentElement) {
+                    notificationBar.parentElement.removeChild(notificationBar);
+                  }
+                  document.body.style.paddingTop = '0';
+                }, 400);
+              }, 2000);
+            });
+        }
       }
     }, 1000);
   };
 
-  // Add animation styles for toast
-  const toastStyle = document.createElement('style');
-  toastStyle.textContent = `
-    @keyframes slideIn {
-      from {
-        transform: translateX(400px);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
+  // Add animation styles for notification bar
+  const notificationStyle = document.createElement('style');
+  notificationStyle.textContent = `
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.8; }
+    }
+    .ae-icon-pulse {
+      animation: pulse 2s infinite;
     }
   `;
-  document.head.appendChild(toastStyle);
+  document.head.appendChild(notificationStyle);
 
   // SECURITY: Clean up stale upgrade records
   // Keep domain-specific pending flags indefinitely (cleared only when subscription applied)
