@@ -10,81 +10,81 @@ const BACKEND_URL = 'https://answerengineer-ai.onrender.com';
 
 // Global activation modal placeholder - will be set up in DOMContentLoaded
 let showActivationModal = null;
+let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Create subscription activation modal
-  const activationModal = document.createElement('div');
-  activationModal.id = 'ae-activation-modal';
-  activationModal.style.cssText = `
+  // Create subscription activation banner (sticky, non-dismissible)
+  const activationBanner = document.createElement('div');
+  activationBanner.id = 'ae-activation-banner';
+  activationBanner.style.cssText = `
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
+    color: white;
+    padding: 14px 16px;
     display: none;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     z-index: 10000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   `;
-  activationModal.innerHTML = `
-    <div style="
-      background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
-      border-radius: 16px;
-      padding: 30px;
-      max-width: 320px;
-      text-align: center;
-      color: white;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    ">
-      <div style="font-size: 48px; margin-bottom: 15px; animation: pulse 2s infinite;">⏳</div>
-      <h2 style="font-size: 20px; margin-bottom: 10px; font-weight: 600;">Activating Starter Plan</h2>
-      <p style="font-size: 14px; opacity: 0.9; margin-bottom: 15px;">
-        Your subscription is being set up. This usually takes less than 2 minutes.
-      </p>
-      <div style="
-        background: rgba(255,255,255,0.1);
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 20px;
-        font-size: 12px;
-        opacity: 0.85;
-      ">
-        <div style="margin-bottom: 8px;">
-          <div style="display: inline-block; width: 20px; height: 20px; background: rgba(253,230,138,0.5); border-radius: 50%; margin-right: 8px;">⏱</div>
-          <span id="ae-activation-timer">1:59</span> remaining
-        </div>
+  activationBanner.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+      <div style="font-size: 20px; animation: pulse 2s infinite;">⏳</div>
+      <div style="flex: 1;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">Activating Starter Plan</div>
+        <div style="font-size: 11px; opacity: 0.85;">Your subscription is being set up</div>
       </div>
-      <button onclick="document.getElementById('ae-activation-modal').style.display='none'" style="
-        background: rgba(253,230,138,0.2);
-        border: 1px solid rgba(253,230,138,0.5);
-        color: #fde68a;
-        padding: 8px 20px;
+      <div style="
+        background: rgba(255,255,255,0.15);
         border-radius: 6px;
-        font-weight: 600;
+        padding: 6px 12px;
         font-size: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-      " onmouseover="this.style.background='rgba(253,230,138,0.3)'" onmouseout="this.style.background='rgba(253,230,138,0.2)'">
-        Dismiss
-      </button>
+        font-weight: 600;
+        white-space: nowrap;
+        text-align: center;
+      ">
+        <span id="ae-activation-timer" style="display: block;">2:00</span>
+        <span style="font-size: 10px; opacity: 0.8;">remaining</span>
+      </div>
     </div>
     <style>
       @keyframes pulse {
         0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.1); opacity: 0.8; }
+        50% { transform: scale(1.15); opacity: 0.8; }
       }
     </style>
   `;
-  document.body.appendChild(activationModal);
+  document.body.appendChild(activationBanner);
 
-  // Function to show activation modal (assigned to global so it can be called from subscription check)
+  // Push content down when banner is visible
+  function updateBannerVisibility(isVisible) {
+    if (isVisible) {
+      activationBanner.style.display = 'flex';
+      // Add padding to body to account for fixed banner
+      document.body.style.paddingTop = '70px';
+    } else {
+      activationBanner.style.display = 'none';
+      // Remove padding
+      document.body.style.paddingTop = '0';
+    }
+  }
+
+  // Function to show activation banner (assigned to global so it can be called from subscription check)
   showActivationModal = function(timeRemaining) {
-    activationModal.style.display = 'flex';
+    // Clear any existing timer to prevent duplicates
+    if (activationTimerInterval) {
+      clearInterval(activationTimerInterval);
+    }
+
+    updateBannerVisibility(true);
     const timerEl = document.getElementById('ae-activation-timer');
 
     // Update timer every second
-    const timerInterval = setInterval(() => {
+    activationTimerInterval = setInterval(() => {
       timeRemaining--;
       const minutes = Math.floor(timeRemaining / 60);
       const seconds = timeRemaining % 60;
@@ -92,8 +92,12 @@ document.addEventListener("DOMContentLoaded", () => {
         timerEl.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
       }
       if (timeRemaining <= 0) {
-        clearInterval(timerInterval);
-        activationModal.style.display = 'none';
+        clearInterval(activationTimerInterval);
+        activationTimerInterval = null;
+        // Keep banner visible briefly then hide
+        setTimeout(() => {
+          updateBannerVisibility(false);
+        }, 500);
       }
     }, 1000);
   };
@@ -180,9 +184,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         console.log(`[DOMAIN-PENDING] ${domainName} waiting for payment (initiated ${Math.round(timeSinceUpgrade/1000)}s ago)`);
                         currentPlan = 'free';
                       } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
-                        // Activation in progress - show modal
-                        const timeRemaining = Math.max(0, Math.ceil((SIXTY_MIN - timeSinceUpgrade) / 1000));
-                        console.log(`[DOMAIN-ACTIVATING] Showing activation modal for ${domainName} (${Math.round(timeSinceUpgrade/1000)}s elapsed)`);
+                        // Activation in progress - show modal with remaining time in 2-minute activation window
+                        const activationWindowEnd = upgradeInitiatedTime + (2 * TWO_MIN); // T + 240 seconds
+                        const timeRemaining = Math.max(0, Math.ceil((activationWindowEnd - Date.now()) / 1000));
+                        console.log(`[DOMAIN-ACTIVATING] Showing activation modal for ${domainName} (${Math.round(timeSinceUpgrade/1000)}s elapsed, ${timeRemaining}s remaining)`);
                         showActivationModal(timeRemaining);
                       } else if (timeSinceUpgrade > SIXTY_MIN) {
                         // Too old - payment likely never completed (>1 hour)
@@ -706,23 +711,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 const SIXTY_MIN = 60 * 60 * 1000;
 
                 if (timeSinceUpgrade < TWO_MIN) {
-                  // Still waiting for payment to complete
-                  debug(`⏳ Subscription pending (${Math.round(timeSinceUpgrade/1000)}s elapsed) - waiting for activation`);
+                  // Still waiting for payment to complete - show modal with time until activation window begins
+                  debug(`⏳ Subscription pending (${Math.round(timeSinceUpgrade/1000)}s elapsed) - waiting for magic link`);
                   currentPlan = 'free';
                   const timeRemaining = Math.max(0, Math.ceil((TWO_MIN - timeSinceUpgrade) / 1000));
                   showActivationModal(timeRemaining);
-                } else if (timeSinceUpgrade > TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
-                  // Payment likely completed
-                  debug(`✅ Payment completed! Applying ${data.plan} to ${domainName}`);
-                  currentPlan = data.plan;
+                } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
+                  // Activation in progress - show modal with remaining time
+                  const pendingTime = new Date(pendingData.timestamp).getTime();
+                  const activationWindowEnd = pendingTime + (2 * TWO_MIN);
+                  const timeRemaining = Math.max(0, Math.ceil((activationWindowEnd - Date.now()) / 1000));
+                  debug(`⏳ Subscription activating for ${domainName} (${timeRemaining}s remaining)`);
+                  currentPlan = data.plan; // Backend confirmed STARTER, apply it
                   setUrlPlan(currentUrl, currentPlan);
-                  localStorage.removeItem(pendingKey);
-
-                  refreshQuotaUI();
-                  refreshCrawlerUI();
-                  refreshHistoryUI();
-                  refreshSettingsUI();
-                }
+                  showActivationModal(timeRemaining); // Show modal for UX
+                } else if (timeSinceUpgrade >= SIXTY_MIN) {
               } else {
                 // No pending flag for this domain
                 // This means this domain DIDN'T initiate an upgrade
