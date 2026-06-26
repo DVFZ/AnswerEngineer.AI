@@ -13,93 +13,10 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Create subscription activation banner (sticky, non-dismissible)
-  const activationBanner = document.createElement('div');
-  activationBanner.id = 'ae-activation-banner';
-  activationBanner.style.cssText = `
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    background: linear-gradient(135deg, #1e3a8a 0%, #6d28d9 100%);
-    color: white;
-    padding: 14px 16px;
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    z-index: 10000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  `;
-  activationBanner.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-      <div style="font-size: 20px; animation: pulse 2s infinite;">⏳</div>
-      <div style="flex: 1;">
-        <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;">Activating Starter Plan</div>
-        <div style="font-size: 11px; opacity: 0.85;">Your subscription is being set up</div>
-      </div>
-      <div style="
-        background: rgba(255,255,255,0.15);
-        border-radius: 6px;
-        padding: 6px 12px;
-        font-size: 12px;
-        font-weight: 600;
-        white-space: nowrap;
-        text-align: center;
-      ">
-        <span id="ae-activation-timer" style="display: block;">2:00</span>
-        <span style="font-size: 10px; opacity: 0.8;">remaining</span>
-      </div>
-    </div>
-    <style>
-      @keyframes pulse {
-        0%, 100% { transform: scale(1); opacity: 1; }
-        50% { transform: scale(1.15); opacity: 0.8; }
-      }
-    </style>
-  `;
-  document.body.appendChild(activationBanner);
-
-  // Push content down when banner is visible
-  function updateBannerVisibility(isVisible) {
-    if (isVisible) {
-      activationBanner.style.display = 'flex';
-      // Add padding to body to account for fixed banner
-      document.body.style.paddingTop = '70px';
-    } else {
-      activationBanner.style.display = 'none';
-      // Remove padding
-      document.body.style.paddingTop = '0';
-    }
-  }
-
-  // Function to show activation banner (assigned to global so it can be called from subscription check)
+  // Placeholder activation modal - will be implemented with a simpler approach later
   showActivationModal = function(timeRemaining) {
-    // Clear any existing timer to prevent duplicates
-    if (activationTimerInterval) {
-      clearInterval(activationTimerInterval);
-    }
-
-    updateBannerVisibility(true);
-    const timerEl = document.getElementById('ae-activation-timer');
-
-    // Update timer every second
-    activationTimerInterval = setInterval(() => {
-      timeRemaining--;
-      const minutes = Math.floor(timeRemaining / 60);
-      const seconds = timeRemaining % 60;
-      if (timerEl) {
-        timerEl.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-      }
-      if (timeRemaining <= 0) {
-        clearInterval(activationTimerInterval);
-        activationTimerInterval = null;
-        // Keep banner visible briefly then hide
-        setTimeout(() => {
-          updateBannerVisibility(false);
-        }, 500);
-      }
-    }, 1000);
+    // No-op: banner functionality will be re-implemented with a simpler, more stable approach
+    console.log(`[ACTIVATION] Timer: ${timeRemaining}s remaining`);
   };
 
   // SECURITY: Clean up stale upgrade records
@@ -726,6 +643,11 @@ document.addEventListener("DOMContentLoaded", () => {
                   setUrlPlan(currentUrl, currentPlan);
                   showActivationModal(timeRemaining); // Show modal for UX
                 } else if (timeSinceUpgrade >= SIXTY_MIN) {
+                  // Too old - payment likely never completed (>1 hour)
+                  debug(`⏳ Upgrade pending for >1hr, assuming failed`);
+                  localStorage.removeItem(pendingKey);
+                  currentPlan = 'free';
+                }
               } else {
                 // No pending flag for this domain
                 // This means this domain DIDN'T initiate an upgrade
