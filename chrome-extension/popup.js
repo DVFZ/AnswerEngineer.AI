@@ -13,9 +13,9 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Brief info toast for subscription activation
+  // Show brief info toast when subscription is activating
   showActivationModal = function(timeRemaining) {
-    // Create toast message (centered)
+    // Create centered toast
     const toast = document.createElement('div');
     toast.style.cssText = `
       position: fixed;
@@ -24,27 +24,24 @@ document.addEventListener("DOMContentLoaded", () => {
       transform: translate(-50%, -50%);
       background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: white;
-      padding: 20px 30px;
-      border-radius: 12px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      padding: 18px 28px;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.2);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 500;
-      max-width: 350px;
+      max-width: 340px;
       text-align: center;
       z-index: 10000;
-      animation: fadeIn 0.3s ease-out;
     `;
-    toast.innerHTML = `
-      <div style="margin-bottom: 6px; font-size: 16px;">ℹ️ Subscription activating...</div>
-      <div style="font-size: 13px; opacity: 0.9;">This may take up to 2 minutes to appear</div>
-    `;
+    toast.innerHTML = `ℹ️ Subscription activating... This may take up to 2 minutes to appear`;
 
     document.body.appendChild(toast);
 
-    // Auto-remove after 5 seconds
+    // Remove after 5 seconds
     setTimeout(() => {
-      toast.style.animation = 'fadeOut 0.4s ease-out forwards';
+      toast.style.opacity = '0';
+      toast.style.transition = 'opacity 0.4s ease-out';
       setTimeout(() => {
         if (toast.parentElement) {
           toast.parentElement.removeChild(toast);
@@ -52,20 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 400);
     }, 5000);
   };
-
-  // Add animations for toast
-  const toastAnimationStyle = document.createElement('style');
-  toastAnimationStyle.textContent = `
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
-      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    }
-    @keyframes fadeOut {
-      from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-      to { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
-    }
-  `;
-  document.head.appendChild(toastAnimationStyle);
 
 
   // SECURITY: Clean up stale upgrade records
@@ -151,8 +134,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         currentPlan = 'free';
                       } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
                         // Activation in progress - ONLY show if backend confirmed STARTER
-                        // (double-check that payment/magic link actually completed)
-                        if (data.plan && data.plan !== 'free') {
+                        // AND pending flag still exists (not already applied)
+                        if (data.plan && data.plan !== 'free' && pending) {
                           const activationWindowEnd = upgradeInitiatedTime + (2 * TWO_MIN);
                           const timeRemaining = Math.max(0, Math.ceil((activationWindowEnd - Date.now()) / 1000));
                           console.log(`[DOMAIN-ACTIVATING] Showing toast for ${domainName}`);
@@ -161,10 +144,15 @@ document.addEventListener("DOMContentLoaded", () => {
                           currentPlan = data.plan;
                           setUrlPlan(currentUrl, currentPlan);
                           localStorage.removeItem(pendingKey);
-                          refreshQuotaUI();
-                          refreshCrawlerUI();
-                          refreshHistoryUI();
-                          refreshSettingsUI();
+
+                          // Refresh UI immediately and verify
+                          setTimeout(() => {
+                            refreshQuotaUI();
+                            refreshCrawlerUI();
+                            refreshHistoryUI();
+                            refreshSettingsUI();
+                            console.log(`[DOMAIN-APPLIED] ${domainName} subscription applied and UI refreshed`);
+                          }, 100);
                         }
                       } else if (timeSinceUpgrade > SIXTY_MIN) {
                         // Too old - payment likely never completed (>1 hour)
@@ -694,8 +682,8 @@ document.addEventListener("DOMContentLoaded", () => {
                   const timeRemaining = Math.max(0, Math.ceil((TWO_MIN - timeSinceUpgrade) / 1000));
                   showActivationModal(timeRemaining);
                 } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
-                  // Debounce window complete - ONLY apply if backend confirmed STARTER
-                  if (data.plan && data.plan !== 'free') {
+                  // Debounce window complete - ONLY apply if backend confirmed STARTER AND pending flag exists
+                  if (data.plan && data.plan !== 'free' && pending) {
                     debug(`✅ Payment completed! Applying ${data.plan} to ${domainName}`);
                     currentPlan = data.plan;
                     setUrlPlan(currentUrl, currentPlan);
@@ -704,14 +692,27 @@ document.addEventListener("DOMContentLoaded", () => {
                     // Show info toast only if subscription is actually STARTER
                     showActivationModal(timeRemaining);
 
-                    refreshQuotaUI();
-                    refreshCrawlerUI();
-                    refreshHistoryUI();
-                    refreshSettingsUI();
+                    // Refresh UI with slight delay to ensure DOM is ready
+                    setTimeout(() => {
+                      refreshQuotaUI();
+                      refreshCrawlerUI();
+                      refreshHistoryUI();
+                      refreshSettingsUI();
+                      debug(`✅ UI refreshed with ${data.plan} plan`);
+                    }, 100);
                   } else {
-                    // Backend still says FREE - payment likely abandoned
-                    debug(`⚠️ Payment abandoned or not verified yet for ${domainName}`);
-                    currentPlan = 'free';
+                    // Backend still says FREE or pending flag is gone
+                    if (!pending) {
+                      debug(`📍 Pending flag already cleared - subscription already applied`);
+                      // Quietly refresh UI to show current state
+                      refreshQuotaUI();
+                      refreshCrawlerUI();
+                      refreshHistoryUI();
+                      refreshSettingsUI();
+                    } else {
+                      debug(`⚠️ Payment abandoned or not verified yet for ${domainName}`);
+                      currentPlan = 'free';
+                    }
                   }
                 } else if (timeSinceUpgrade >= SIXTY_MIN) {
                   // Too old - payment likely never completed (>1 hour)
