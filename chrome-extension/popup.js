@@ -13,7 +13,7 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Simple info toast - then auto-close extension for user to reopen
+  // Persistent monitoring toast with auto-close on success
   showActivationModal = function(email, domainName, timeRemaining) {
     // Create centered toast
     const toast = document.createElement('div');
@@ -34,18 +34,59 @@ document.addEventListener("DOMContentLoaded", () => {
       text-align: center;
       z-index: 10000;
     `;
-    toast.innerHTML = `
-      <div style="margin-bottom: 8px; font-size: 16px;">⏳ Subscription activating...</div>
-      <div style="font-size: 12px; opacity: 0.9;">Please reopen the extension in a moment</div>
+    const messageEl = document.createElement('div');
+    messageEl.innerHTML = `
+      <div style="margin-bottom: 8px; font-size: 16px;">⏳ Verifying subscription...</div>
+      <div style="font-size: 12px; opacity: 0.9;">Setting up your Starter plan</div>
     `;
+    toast.appendChild(messageEl);
 
     document.body.appendChild(toast);
 
-    // Auto-close extension after 2 seconds
-    setTimeout(() => {
-      // Close the popup window
-      window.close();
-    }, 2000);
+    // Poll subscription status until confirmed
+    let pollCount = 0;
+    const pollInterval = setInterval(() => {
+      pollCount++;
+
+      // Update toast message with dots animation
+      const dots = '.'.repeat((pollCount % 4) + 1);
+      messageEl.innerHTML = `
+        <div style="margin-bottom: 8px; font-size: 16px;">⏳ Verifying subscription${dots}</div>
+        <div style="font-size: 12px; opacity: 0.9;">Setting up your Starter plan</div>
+      `;
+
+      // Re-check subscription status from backend
+      fetch(BACKEND_URL + '/api/subscription/' + encodeURIComponent(email) + '/' + encodeURIComponent(domainName))
+        .then(res => res.json())
+        .then(data => {
+          if (data.plan && data.plan !== 'free') {
+            // Subscription confirmed! Auto-close extension
+            clearInterval(pollInterval);
+            console.log(`[SUBSCRIPTION-CONFIRMED] ${domainName} upgraded to ${data.plan}`);
+
+            // Show success message briefly then close
+            messageEl.innerHTML = `
+              <div style="margin-bottom: 8px; font-size: 16px;">✅ Subscription Confirmed!</div>
+              <div style="font-size: 12px; opacity: 0.9;">Closing extension...</div>
+            `;
+
+            // Close extension after 1 second
+            setTimeout(() => {
+              window.close();
+            }, 1000);
+          }
+        })
+        .catch(err => console.log('Poll error:', err));
+
+      // Stop polling after 3 minutes (safety limit)
+      if (pollCount > 180) {
+        clearInterval(pollInterval);
+        messageEl.innerHTML = `
+          <div style="margin-bottom: 8px; font-size: 16px;">⏱️ Verification Timeout</div>
+          <div style="font-size: 12px; opacity: 0.9;">Please close and reopen the extension</div>
+        `;
+      }
+    }, 1000); // Poll every second
   };
 
 
