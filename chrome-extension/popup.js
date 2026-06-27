@@ -13,78 +13,53 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Persistent monitoring toast with auto-close on success
+  // Poll until subscription confirmed, then update UI
   showActivationModal = function(email, domainName, timeRemaining) {
-    // Create centered toast
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      color: white;
-      padding: 20px 30px;
-      border-radius: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 14px;
-      font-weight: 500;
-      max-width: 360px;
-      text-align: center;
-      z-index: 10000;
-    `;
-    const messageEl = document.createElement('div');
-    messageEl.innerHTML = `
-      <div style="margin-bottom: 8px; font-size: 16px;">⏳ Verifying subscription...</div>
-      <div style="font-size: 12px; opacity: 0.9;">Setting up your Starter plan</div>
-    `;
-    toast.appendChild(messageEl);
-
-    document.body.appendChild(toast);
+    console.log(`[ACTIVATION-MODAL] Verifying ${domainName}...`);
 
     // Poll subscription status until confirmed
     let pollCount = 0;
     const pollInterval = setInterval(() => {
       pollCount++;
 
-      // Update toast message with dots animation
-      const dots = '.'.repeat((pollCount % 4) + 1);
-      messageEl.innerHTML = `
-        <div style="margin-bottom: 8px; font-size: 16px;">⏳ Verifying subscription${dots}</div>
-        <div style="font-size: 12px; opacity: 0.9;">Setting up your Starter plan</div>
-      `;
-
       // Re-check subscription status from backend
       fetch(BACKEND_URL + '/api/subscription/' + encodeURIComponent(email) + '/' + encodeURIComponent(domainName))
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) {
+            return res.json().catch(() => ({}));
+          }
+          return res.json();
+        })
         .then(data => {
-          if (data.plan && data.plan !== 'free') {
-            // Subscription confirmed! Auto-close extension
+          console.log(`[POLLING-RESPONSE] Domain: ${domainName}, Data:`, data);
+          if (data && data.plan && data.plan !== 'free') {
+            // Subscription confirmed for THIS domain!
             clearInterval(pollInterval);
-            console.log(`[SUBSCRIPTION-CONFIRMED] ${domainName} upgraded to ${data.plan}`);
+            console.log(`[SUBSCRIPTION-CONFIRMED] ${domainName} = ${data.plan}`);
 
-            // Show success message briefly then close
-            messageEl.innerHTML = `
-              <div style="margin-bottom: 8px; font-size: 16px;">✅ Subscription Confirmed!</div>
-              <div style="font-size: 12px; opacity: 0.9;">Closing extension...</div>
-            `;
+            // Update localStorage with the new plan (domain-specific)
+            const planKey = 'ae_plan_' + domainName;
+            const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
+            console.log(`[SAVING-TO-LOCALSTORAGE] Key: ${planKey}, Value: ${data.plan}, Pending-Key: ${pendingKey}`);
+            localStorage.setItem(planKey, data.plan);
+            localStorage.removeItem(pendingKey); // Clear pending flag
+            console.log(`[SAVED] ${planKey} = ${data.plan}`, localStorage.getItem(planKey));
 
-            // Close extension after 1 second
-            setTimeout(() => {
-              window.close();
-            }, 1000);
+            // Update the global currentPlan and refresh UI
+            currentPlan = data.plan;
+            refreshQuotaUI();
+            refreshCrawlerUI();
+            refreshHistoryUI();
+            refreshSettingsUI();
+            debug(`✅ Subscription upgraded to ${currentPlan.toUpperCase()}`);
           }
         })
-        .catch(err => console.log('Poll error:', err));
+        .catch(err => console.log(`[POLL] Error:`, err));
 
       // Stop polling after 3 minutes (safety limit)
       if (pollCount > 180) {
         clearInterval(pollInterval);
-        messageEl.innerHTML = `
-          <div style="margin-bottom: 8px; font-size: 16px;">⏱️ Verification Timeout</div>
-          <div style="font-size: 12px; opacity: 0.9;">Please close and reopen the extension</div>
-        `;
+        console.log(`[TIMEOUT] Giving up on verification`);
       }
     }, 1000); // Poll every second
   };
@@ -143,9 +118,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Query backend for domain-specific subscription status
             const domainName = new URL(currentUrl).hostname;
+            console.log(`[PAGE-LOAD-CHECK] Email: ${settings.email}, Domain: ${domainName}, LocalStorage-Key: ae_plan_${domainName}`);
+            console.log(`[PAGE-LOAD-LOCAL-PLAN]`, localStorage.getItem('ae_plan_' + domainName));
+
             fetch(`${BACKEND_URL}/api/subscription/${encodeURIComponent(settings.email)}/${encodeURIComponent(domainName)}`)
               .then(res => res.json())
               .then(data => {
+                console.log(`[PAGE-LOAD-BACKEND-RESPONSE]`, data);
                 if (data.plan && data.plan !== 'free') {
                   // Backend confirms PAID plan
                   // BUT: Only apply it to THIS DOMAIN if THIS DOMAIN explicitly upgraded
@@ -158,6 +137,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     const domainName = new URL(currentUrl).hostname;
                     const pendingKey = 'ae_pending_upgrade_domain_' + domainName;
                     const pending = localStorage.getItem(pendingKey);
+                    console.log(`[PAGE-LOAD-PENDING-CHECK] Domain: ${domainName}, Key: ${pendingKey}, Pending: ${pending}`);
 
                     if (pending) {
                       const pendingData = JSON.parse(pending);
@@ -709,7 +689,8 @@ document.addEventListener("DOMContentLoaded", () => {
                   debug(`⏳ Subscription pending (${Math.round(timeSinceUpgrade/1000)}s elapsed) - waiting for magic link`);
                   currentPlan = 'free';
                   const timeRemaining = Math.max(0, Math.ceil((TWO_MIN - timeSinceUpgrade) / 1000));
-                  showActivationModal(timeRemaining);
+                  const userEmail = settings && settings.email ? settings.email : '';
+                  showActivationModal(userEmail, domainName, timeRemaining);
                 } else if (timeSinceUpgrade >= TWO_MIN && timeSinceUpgrade < SIXTY_MIN) {
                   // Debounce window complete - ONLY apply if backend confirmed STARTER AND pending flag exists
                   if (data.plan && data.plan !== 'free' && pending) {
@@ -1177,25 +1158,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Get domain for this upgrade (declare once, reuse below)
     const domainName = new URL(currentUrl).hostname;
+    console.log(`[UPGRADE-INITIATED] Email: ${email}, Domain: ${domainName}, URL: ${currentUrl}`);
 
     try {
-      debug(`💳 Creating Stripe checkout session for ${email}...`);
+      debug(`💳 Creating Stripe checkout session for ${email} on ${domainName}...`);
 
       // Call backend to create Stripe checkout session (with 10s timeout)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const checkoutBody = {
+        email: email,
+        plan: "starter",
+        billingPeriod: "monthly",
+        domain: domainName // Include domain for per-domain subscriptions
+      };
+      console.log(`[CHECKOUT-BODY]`, checkoutBody);
 
       const response = await fetch(`${BACKEND_URL}/api/checkout-session`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          email: email,
-          plan: "starter",
-          billingPeriod: "monthly",
-          domain: domainName // Include domain for per-domain subscriptions
-        }),
+        body: JSON.stringify(checkoutBody),
         signal: controller.signal
       });
 
@@ -2061,7 +2046,29 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function isValidEmail(e) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e || "").trim());
+    const email = String(e || "").trim().toLowerCase();
+
+    // Basic format check
+    const basicFormat = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!basicFormat) return false;
+
+    // Split email into local and domain parts
+    const [localPart, ...domainParts] = email.split('@');
+    const domain = domainParts.join('@');
+
+    // Validate local part (before @)
+    if (localPart.length === 0 || localPart.length > 64) return false;
+
+    // Validate domain has proper TLD (at least .XX format, not just .X)
+    const domainRegex = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/.test(domain);
+    if (!domainRegex) return false;
+
+    // Must have at least 2-letter TLD (e.g., .com, .co, .io, not just .c)
+    const parts = domain.split('.');
+    const tld = parts[parts.length - 1];
+    if (tld.length < 2) return false;
+
+    return true;
   }
 
   if (setSave) {

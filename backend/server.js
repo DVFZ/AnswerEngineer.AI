@@ -125,7 +125,7 @@ app.post('/api/checkout-session', async (req, res) => {
       console.log(`[CHECKOUT] Using existing customer: ${customerId}`);
     }
 
-    // Create checkout session
+    // Create checkout session with domain metadata
     console.log(`[CHECKOUT] Creating Stripe checkout session...`);
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -137,6 +137,10 @@ app.post('/api/checkout-session', async (req, res) => {
         },
       ],
       mode: 'subscription',
+      metadata: {
+        domain: domain || '', // Store domain for webhook processing
+        email: email
+      },
       success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}&plan=${plan}&domain=${encodeURIComponent(domain || '')}`,
       cancel_url: `${process.env.FRONTEND_URL}/cancel?email=${encodeURIComponent(email)}&domain=${encodeURIComponent(domain || '')}`,
     });
@@ -232,14 +236,21 @@ app.get('/api/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
 
+    console.log(`[VERIFY] Token received: ${token.substring(0, 10)}...`);
+    console.log(`[VERIFY] Available tokens in memory: ${Object.keys(magicLinkTokens).length}`);
+
     if (!token || !magicLinkTokens[token]) {
+      console.log(`[VERIFY] ❌ Invalid or expired token`);
       return res.status(400).json({ error: 'Invalid or expired magic link' });
     }
 
     const { email, plan, domain, expiresAt } = magicLinkTokens[token];
 
+    console.log(`[VERIFY] ✅ Token found | Email: ${email} | Plan: ${plan} | Domain: ${domain}`);
+
     if (expiresAt < Date.now()) {
       delete magicLinkTokens[token];
+      console.log(`[VERIFY] ❌ Token expired`);
       return res.status(400).json({ error: 'Magic link has expired' });
     }
 
@@ -247,6 +258,7 @@ app.get('/api/verify/:token', async (req, res) => {
 
     // Store subscription for this domain in domain_subscriptions table
     // This ensures subscriptions are per-domain, not global per-email
+    console.log(`[VERIFY] Creating/updating domain_subscriptions: email=${email}, domain=${domain}, plan=${plan}`);
     const { error } = await supabase
       .from('domain_subscriptions')
       .upsert({
@@ -258,7 +270,7 @@ app.get('/api/verify/:token', async (req, res) => {
       }, { onConflict: 'email,domain' });
 
     if (error) {
-      console.error(`Error updating domain subscription for ${email}/${domain}:`, error);
+      console.error(`[VERIFY] ❌ Error updating domain subscription for ${email}/${domain}:`, error);
       return res.status(500).json({ error: 'Failed to update subscription' });
     }
 
@@ -506,7 +518,16 @@ async function handleSubscriptionChange(stripeSubscription) {
 
   const status = stripeSubscription.status; // 'active', 'past_due', 'unpaid', 'trialing', 'canceled'
 
-  // Update subscription in Supabase users table (simpler!)
+  // Get domain from Stripe metadata (for per-domain subscriptions)
+  const domain = stripeSubscription.metadata?.domain || '';
+
+  console.log(`[WEBHOOK] Subscription event for ${email} | Plan: ${plan} | Domain: ${domain} | Status: ${status}`);
+
+  // DO NOT auto-update domain_subscriptions here!
+  // Subscriptions should only be created via magic link verification (/api/verify endpoint)
+  // The webhook is only for reference and should NOT create or modify domain subscriptions
+
+  // Update subscription in Supabase users table (for backward compatibility)
   const { error } = await supabase
     .from('users')
     .upsert({
@@ -521,7 +542,8 @@ async function handleSubscriptionChange(stripeSubscription) {
   if (error) {
     console.error(`Error updating subscription for ${email}:`, error);
   } else {
-    console.log(`✅ Subscription updated for ${email}: ${plan} (${billingPeriod})`);
+    console.log(`✅ Webhook updated users table for ${email}: ${plan} (${billingPeriod})`);
+    console.log(`   ⚠️  Domain subscriptions are only created via magic link verification (/api/verify)`);
   }
 }
 
