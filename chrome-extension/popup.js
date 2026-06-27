@@ -13,7 +13,7 @@ let showActivationModal = null;
 let activationTimerInterval = null; // Prevent multiple timers
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Persistent monitoring toast - stays visible until subscription is confirmed
+  // Simple info toast - then auto-close extension for user to reopen
   showActivationModal = function(email, domainName, timeRemaining) {
     // Create centered toast
     const toast = document.createElement('div');
@@ -34,77 +34,18 @@ document.addEventListener("DOMContentLoaded", () => {
       text-align: center;
       z-index: 10000;
     `;
-    const messageEl = document.createElement('div');
-    messageEl.innerHTML = `
-      <div style="margin-bottom: 8px; font-size: 16px;">⏳ Verifying subscription...</div>
-      <div style="font-size: 12px; opacity: 0.9;">Setting up your Starter plan</div>
+    toast.innerHTML = `
+      <div style="margin-bottom: 8px; font-size: 16px;">⏳ Subscription activating...</div>
+      <div style="font-size: 12px; opacity: 0.9;">Please reopen the extension in a moment</div>
     `;
-    toast.appendChild(messageEl);
 
     document.body.appendChild(toast);
 
-    // Poll subscription status until confirmed
-    let pollCount = 0;
-    const pollInterval = setInterval(() => {
-      pollCount++;
-
-      // Update toast message with dots animation
-      const dots = '.'.repeat((pollCount % 4) + 1);
-      messageEl.innerHTML = `
-        <div style="margin-bottom: 8px; font-size: 16px;">⏳ Verifying subscription${dots}</div>
-        <div style="font-size: 12px; opacity: 0.9;">Setting up your Starter plan</div>
-      `;
-
-      // Re-check subscription status from backend
-      fetch(BACKEND_URL + '/api/subscription/' + encodeURIComponent(email) + '/' + encodeURIComponent(domainName))
-        .then(res => res.json())
-        .then(data => {
-          if (data.plan && data.plan !== 'free') {
-            // Subscription confirmed! Show success and refresh
-            clearInterval(pollInterval);
-
-            messageEl.innerHTML = `
-              <div style="margin-bottom: 8px; font-size: 16px;">✅ Subscription Activated!</div>
-              <div style="font-size: 12px; opacity: 0.9;">Your Starter plan is now active</div>
-            `;
-
-            // Apply and refresh
-            currentPlan = data.plan;
-            setUrlPlan(currentUrl, currentPlan);
-
-            setTimeout(() => {
-              refreshQuotaUI();
-              refreshCrawlerUI();
-              refreshHistoryUI();
-              refreshSettingsUI();
-
-              // Close toast after 2 seconds
-              setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transition = 'opacity 0.4s ease-out';
-                setTimeout(() => {
-                  if (toast.parentElement) {
-                    toast.parentElement.removeChild(toast);
-                  }
-                }, 400);
-              }, 2000);
-            }, 100);
-          }
-        })
-        .catch(err => console.log('Poll error:', err));
-
-      // Stop polling after 3 minutes (safety limit)
-      if (pollCount > 180) {
-        clearInterval(pollInterval);
-        toast.style.opacity = '0';
-        toast.style.transition = 'opacity 0.4s ease-out';
-        setTimeout(() => {
-          if (toast.parentElement) {
-            toast.parentElement.removeChild(toast);
-          }
-        }, 400);
-      }
-    }, 1000); // Poll every second
+    // Auto-close extension after 2 seconds
+    setTimeout(() => {
+      // Close the popup window
+      window.close();
+    }, 2000);
   };
 
 
